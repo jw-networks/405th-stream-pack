@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<!-- 405th AUDIO MIXER — a dock (or remote page) for the show's audio.
+     Add in OBS: Docks → Custom Browser Docks → URL: file:///C:/Streams/405th-live/mixer.html
+     Uses the same OBS WebSocket connection settings as the Director. -->
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>405th Mixer</title>
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  html { overflow: auto; background: var(--bg); }
+  body { overflow: visible; padding: 10px; font-size: 14px; min-width: 240px; }
+  .top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .top img { width: 30px; }
+  .top b { flex: 1; font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+  .top b small { font-size: 11px; color: #777; letter-spacing: .05em; font-weight: 600; }
+  #status { font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; padding: 3px 8px; background: #5a1d1d; cursor: pointer; }
+  #status.ok { background: var(--teal); }
+  #settings { display: none; background: var(--panel); padding: 10px; margin-bottom: 8px; }
+  #settings.open { display: block; }
+  #settings input { width: 100%; padding: 6px; margin: 3px 0 8px; background: #0f0f0f; color: #fff; border: 1px solid #333; font-size: 13px; }
+  #settings label { font-size: 12px; color: var(--muted); }
+  #settings button { padding: 6px 12px; background: var(--cyan); border: 0; font-weight: 800; cursor: pointer; }
+  .msg { font-size: 12px; color: #f88; margin-top: 4px; }
+
+  .groups { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: flex-start; }
+  .group { background: rgba(0,0,0,.25); padding: 6px 6px 8px; }
+  .group h3 { margin: 0 2px 6px; font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--gc, var(--cyan)); }
+  .strips { display: flex; gap: 5px; }
+
+  .strip { position: relative; width: 66px; background: var(--panel); border-top: 3px solid var(--gc, #333); display: flex; flex-direction: column; align-items: center; padding: 6px 4px 6px; }
+  .strip.onair { box-shadow: inset 0 0 0 2px #c62828; }
+  .strip .air { position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; border-radius: 50%; background: #333; }
+  .strip.onair .air { background: #e53935; box-shadow: 0 0 8px #e53935; }
+  .strip .k { font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--gc, var(--cyan)); align-self: flex-start; }
+  .strip .n { font-size: 12px; font-weight: 800; text-transform: uppercase; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 6px; }
+  .strip .body { display: flex; gap: 5px; height: var(--fh, 170px); }
+  /* meter */
+  .meter { width: 10px; height: 100%; background: #0c0c0c; position: relative; overflow: hidden; }
+  .meter .lvl { position: absolute; left: 0; right: 0; bottom: 0; height: 0%;
+                background: linear-gradient(to top, #2fbf5a 0, #2fbf5a 66%, #e6c229 66%, #e6c229 85%, #e53935 85%);
+                background-size: 100% var(--fh, 170px); background-position: bottom; }
+  .meter .pk { position: absolute; left: 0; right: 0; height: 2px; background: #fff; bottom: 0%; opacity: .8; }
+  .strip.muted .meter .lvl { filter: grayscale(1) brightness(.6); }
+  /* fader */
+  .fader { position: relative; width: 26px; height: 100%; cursor: ns-resize; touch-action: none; }
+  .fader::before { content: ""; position: absolute; left: 11px; width: 4px; top: 0; bottom: 0; background: #0c0c0c; }
+  .fader .tick { position: absolute; left: 0; right: 0; height: 1px; background: #3a3a3a; }
+  .fader .tick.zero { background: #777; }
+  .fader .knob { position: absolute; left: 1px; width: 24px; height: 14px; margin-top: -7px; background: #ddd; border-radius: 2px;
+                 box-shadow: 0 2px 4px rgba(0,0,0,.6); }
+  .fader .knob::after { content: ""; position: absolute; left: 3px; right: 3px; top: 6px; height: 2px; background: #333; }
+  .fader:hover .knob, .fader.drag .knob { background: #fff; }
+  .db { font: 700 12px var(--font); font-variation-settings: "wdth" 75; color: #ccc; margin-top: 5px; font-variant-numeric: tabular-nums; }
+  .mute { margin-top: 5px; width: 100%; padding: 5px 0; border: 0; cursor: pointer; background: #2b2b2b; color: #ddd;
+          font: 800 12px var(--font); font-variation-settings: "wdth" 75; letter-spacing: .12em; text-transform: uppercase; }
+  .strip.muted .mute { background: #c62828; color: #fff; }
+  .strip.missing { opacity: .4; }
+  .opts { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; font-size: 12px; color: #bbb; }
+  .opts label { display: flex; align-items: center; gap: 5px; }
+  .opts select { background: #0f0f0f; color: #ddd; border: 1px solid #333; padding: 2px; font-size: 12px; }
+  .hint { font-size: 11px; color: #777; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="top"><img src="assets/emblem.png" alt=""><b>Audio <small id="ver"></small></b><span id="status" title="Click to show/hide connection settings">Offline ⚙</span></div>
+<div id="settings">
+  <label>OBS WebSocket address: <i>localhost:4455</i> on the OBS PC, or the <i>wss://</i> tunnel address for remote use</label><input id="host" value="localhost:4455">
+  <label>Password (OBS → Tools → WebSocket Server Settings → Show Connect Info)</label><input id="pw" type="password">
+  <button id="save">Connect</button>
+  <div class="msg" id="err"></div>
+</div>
+
+<div class="groups" id="groups"></div>
+<div class="opts">
+  <label><input type="checkbox" id="optMeters" checked> Level meters</label>
+  <label>Fader height <select id="optH"><option value="120">small</option><option value="170" selected>medium</option><option value="240">large</option></select></label>
+  <label><input type="checkbox" id="optOther" checked> Show other audio (mic, desktop…)</label>
+</div>
+<div class="hint">Drag a fader, or scroll over it for ±1 dB. Double-click a fader to reset it to 0 dB. A red dot means that person is on screen live.</div>
+
+<script src="config.js"></script>
+<script src="config.local.js" onerror="void 0"></script>
+<script src="assets/layouts.js"></script>
+<script src="assets/names.js"></script>
+<script src="assets/sha256.js"></script>
+<script>
+const VERSION = "v1";
+const L = LAYOUTS, $ = id => document.getElementById(id);
+$("ver").textContent = VERSION;
+const store = { get: k => { try { return localStorage.getItem("405th." + k); } catch (e) { return null; } },
+                set: (k, v) => { try { localStorage.setItem("405th." + k, v); } catch (e) {} } };
+const P = new URLSearchParams(location.search);
+const OBS = (window.PACK_CONFIG && window.PACK_CONFIG.obs) || {};
+$("host").value = P.get("host") || store.get("host") || OBS.address || "localhost:4455";   // same settings as the Director
+$("pw").value = P.get("pw") || store.get("pw") || OBS.password || "";
+
+/* ---------- strips ---------- */
+const MIN_DB = -60;                                     // fader bottom (below = silent)
+const strips = {};                                      // inputName -> strip
+const camName = s => "CAM · " + L.seatName(s);
+const SKIP = /^(NAME · |FRAMES · |405th LINK$|.* screen$|Roster board$)/;   // pack sources with no useful audio
+const T = L.TEAMS;
+document.documentElement.style.setProperty("--ta", T.a.color);
+document.documentElement.style.setProperty("--tb", T.b.color);
+
+function group(id, title, color) {
+  let g = document.getElementById("g-" + id);
+  if (!g) {
+    g = document.createElement("div"); g.className = "group"; g.id = "g-" + id;
+    if (color) g.style.setProperty("--gc", color);
+    g.innerHTML = `<h3></h3><div class="strips"></div>`;
+    $("groups").appendChild(g);
+  }
+  if (title) g.querySelector("h3").textContent = title;
+  return g.querySelector(".strips");
+}
+function buildGroups() {
+  group("hosts", "Hosts", "#e8eef0");
+  group("a", Names.get("teama") || T.a.name, T.a.color);
+  group("b", Names.get("teamb") || T.b.name, T.b.color);
+  group("other", "Other audio", "#9aa3a6");
+}
+buildGroups();
+
+function makeStrip(inputName, seat) {
+  const el = document.createElement("div");
+  el.className = "strip missing";
+  el.innerHTML = `<span class="air"></span><span class="k"></span><span class="n"></span>
+    <div class="body"><div class="meter"><div class="lvl"></div><div class="pk"></div></div><div class="fader"><div class="knob"></div></div></div>
+    <div class="db">—</div><button class="mute">Mute</button>`;
+  const st = { el, inputName, seat, db: 0, muted: false, peak: -100, peakT: 0 };
+  strips[inputName] = st;
+  // ticks every 10 dB
+  const fader = el.querySelector(".fader");
+  for (let d = 0; d >= MIN_DB; d -= 10) {
+    const t = document.createElement("div"); t.className = "tick" + (d === 0 ? " zero" : "");
+    t.style.top = (dbToY(d) * 100) + "%"; fader.appendChild(t);
+  }
+  // drag
+  let dragging = false;
+  const setFromY = e => {
+    const r = fader.getBoundingClientRect();
+    const y = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
+    setVolume(st, yToDb(y));
+  };
+  fader.addEventListener("pointerdown", e => { dragging = true; fader.classList.add("drag"); fader.setPointerCapture(e.pointerId); setFromY(e); e.preventDefault(); });
+  fader.addEventListener("pointermove", e => { if (dragging) setFromY(e); });
+  const end = () => { dragging = false; fader.classList.remove("drag"); flush(st); };
+  fader.addEventListener("pointerup", end); fader.addEventListener("pointercancel", end);
+  fader.addEventListener("dblclick", () => { setVolume(st, 0); flush(st); });
+  fader.addEventListener("wheel", e => { e.preventDefault(); setVolume(st, (st.db <= MIN_DB ? MIN_DB : st.db) + (e.deltaY < 0 ? 1 : -1)); flush(st); }, { passive: false });
+  el.querySelector(".mute").onclick = () => request("SetInputMute", { inputName, inputMuted: !st.muted });
+  labelStrip(st);
+  return st;
+}
+function labelStrip(st) {
+  if (st.seat) {
+    st.el.querySelector(".k").textContent = L.seatName(st.seat);
+    st.el.querySelector(".n").textContent = Names.get(st.seat) || L.seatName(st.seat);
+    st.el.querySelector(".n").title = st.el.querySelector(".n").textContent;
+  } else {
+    st.el.querySelector(".k").textContent = "Source";
+    st.el.querySelector(".n").textContent = st.inputName;
+    st.el.querySelector(".n").title = st.inputName;
+  }
+}
+// seat strips always exist (dimmed until OBS confirms the source)
+for (const s of L.SEATS) {
+  const st = makeStrip(camName(s), s);
+  const where = s.startsWith("host") ? "hosts" : L.teamOf(s);
+  group(where).appendChild(st.el);
+}
+
+/* fader position <-> dB (linear in dB from 0 at the top to MIN_DB at the bottom) */
+function dbToY(db) { return db >= 0 ? 0 : db <= MIN_DB ? 1 : -db / -MIN_DB; }
+function yToDb(y) { return y >= 0.995 ? -100 : -y * -MIN_DB; }
+function paint(st) {
+  st.el.querySelector(".knob").style.top = (dbToY(st.db) * 100) + "%";
+  st.el.querySelector(".db").textContent = st.db <= -99 ? "-∞" : (st.db > -0.05 ? "0.0" : st.db.toFixed(1));
+  st.el.classList.toggle("muted", st.muted);
+  st.el.querySelector(".mute").textContent = st.muted ? "Muted" : "Mute";
+}
+// send volume changes at most ~20x a second while dragging
+function setVolume(st, db) {
+  st.db = Math.max(-100, Math.min(0, Math.round(db * 10) / 10));
+  paint(st);
+  if (!st.timer) st.timer = setTimeout(() => flush(st), 50);
+}
+function flush(st) {
+  clearTimeout(st.timer); st.timer = null;
+  request("SetInputVolume", { inputName: st.inputName, inputVolumeDb: st.db <= -99 ? -100 : st.db });
+}
+
+/* meters (from OBS's InputVolumeMeters event, ~20 per second) */
+function meters(inputs) {
+  if (!$("optMeters").checked) return;
+  const now = performance.now();
+  for (const inp of inputs) {
+    const st = strips[inp.inputName]; if (!st) continue;
+    let peak = 0;
+    for (const ch of inp.inputLevelsMul || []) peak = Math.max(peak, ch[1] || 0);   // [magnitude, peak, inputPeak]
+    const db = peak > 0 ? 20 * Math.log10(peak) : -100;
+    const y = Math.max(0, Math.min(1, (db - MIN_DB) / -MIN_DB));
+    st.el.querySelector(".lvl").style.height = (y * 100) + "%";
+    if (db > st.peak || now - st.peakT > 1500) { st.peak = db; st.peakT = now; }
+    st.el.querySelector(".pk").style.bottom = (Math.max(0, Math.min(1, (st.peak - MIN_DB) / -MIN_DB)) * 100) + "%";
+  }
+}
+
+/* load every audio input from OBS */
+function loadInputs() {
+  request("GetInputList", {}, r => {
+    if (!r.requestStatus.result) return;
+    const names = r.responseData.inputs.map(i => i.inputName).filter(n => !SKIP.test(n));
+    for (const n of names) {
+      request("GetInputVolume", { inputName: n }, v => {
+        if (!v.requestStatus.result) return;          // no audio on this source
+        let st = strips[n];
+        if (!st) { st = makeStrip(n, null); group("other").appendChild(st.el); showOther(); }
+        st.el.classList.remove("missing");
+        st.db = v.responseData.inputVolumeDb; paint(st);
+        request("GetInputMute", { inputName: n }, m => { if (m.requestStatus.result) { st.muted = m.responseData.inputMuted; paint(st); } });
+      });
+    }
+    showOther();
+  });
+}
+function showOther() {
+  const g = $("g-other");
+  g.style.display = $("optOther").checked && g.querySelector(".strip") ? "" : "none";
+}
+
+/* on-air dots: which seats are on screen in Program */
+let pgmScene = "";
+function tally() {
+  const m = L.sceneToView(pgmScene);
+  let on = [];
+  if (m) on = m.multi ? ((m.seats && m.seats.length) ? m.seats : ["p1", "p2"]) : Object.keys(L.view(m.view, m.arg).rects);
+  for (const st of Object.values(strips)) st.el.classList.toggle("onair", !!st.seat && on.includes(st.seat));
+}
+
+Names.onChange(() => { Object.values(strips).forEach(labelStrip); buildGroups(); });
+Names.start();
+
+/* options */
+$("optMeters").checked = store.get("mixMeters") !== "0";
+$("optMeters").onchange = () => { store.set("mixMeters", $("optMeters").checked ? "1" : "0"); reconnect(); if (!$("optMeters").checked) document.querySelectorAll(".lvl").forEach(e => e.style.height = "0%"); };
+$("optH").value = store.get("mixH") || "170";
+const applyH = () => document.documentElement.style.setProperty("--fh", $("optH").value + "px");
+$("optH").onchange = () => { store.set("mixH", $("optH").value); applyH(); }; applyH();
+$("optOther").checked = store.get("mixOther") !== "0";
+$("optOther").onchange = () => { store.set("mixOther", $("optOther").checked ? "1" : "0"); showOther(); };
+
+/* ---------- OBS WebSocket (same connection logic as the Director) ---------- */
+let ws = null, ready = false, reqId = 0, retry = null, fails = 0, tryAlt = false;
+const reqCb = {};
+function setStatus(ok, text) { $("status").textContent = text + " ⚙"; $("status").classList.toggle("ok", ok); }
+function cleanHost(h) { return h.trim().replace(/^(wss?|https?):\/\//i, "").replace(/\/+$/, "") || "localhost:4455"; }
+function request(type, data, cb) {
+  if (!ready) return;
+  const id = "m" + (++reqId);
+  if (cb) reqCb[id] = cb;
+  ws.send(JSON.stringify({ op: 6, d: { requestType: type, requestId: id, requestData: data || {} } }));
+}
+function reconnect() { fails = 0; connect(); }
+function connect() {
+  clearTimeout(retry);
+  if (ws) { ws.onclose = null; ws.close(); }
+  ready = false; setStatus(false, "Connecting");
+  const raw = $("host").value.trim();
+  let host = cleanHost(raw);
+  const local = /^(localhost|127\.0\.0\.1|\[::1\])(:|$)/i.test(host);
+  const scheme = /^(wss|https):\/\//i.test(raw) ? "wss" : /^(ws|http):\/\//i.test(raw) ? "ws"
+               : /\.(trycloudflare\.com|ts\.net)$/i.test(host) ? "wss"
+               : (location.protocol === "https:" && !local ? "wss" : "ws");
+  if (scheme === "ws" && !/:\d+$/.test(host)) host += ":4455";
+  if (tryAlt && /^localhost:/i.test(host)) host = host.replace(/^localhost/i, "127.0.0.1");
+  else if (tryAlt && /^127\.0\.0\.1:/.test(host)) host = host.replace(/^127\.0\.0\.1/, "localhost");
+  const url = scheme + "://" + host;
+  if (scheme === "ws" && location.protocol === "https:" && !/^(localhost|127\.0\.0\.1)/i.test(host)) {
+    setStatus(false, "Offline"); $("settings").classList.add("open");
+    $("err").innerHTML = "This page is on https, so it can only reach OBS through a secure <b>wss://</b> address.";
+    return;
+  }
+  try { ws = new WebSocket(url); } catch (e) { setStatus(false, "Offline"); $("err").textContent = e.message; return; }
+  ws.onmessage = ev => {
+    const msg = JSON.parse(ev.data);
+    if (msg.op === 0) {
+      // General (names relay) + Scenes (on-air dots) + Inputs (volume/mute changes) + InputVolumeMeters (levels)
+      const d = { rpcVersion: 1, eventSubscriptions: 1 | 4 | 8 | ($("optMeters").checked ? 65536 : 0) };
+      if (msg.d.authentication) {
+        if (!$("pw").value) { $("settings").classList.add("open"); $("err").textContent = "OBS wants a password. Paste it above and click Connect."; }
+        d.authentication = sha256b64(sha256b64($("pw").value + msg.d.authentication.salt) + msg.d.authentication.challenge);
+      }
+      ws.send(JSON.stringify({ op: 1, d }));
+    } else if (msg.op === 2) {
+      ready = true; fails = 0; setStatus(true, "Connected"); $("err").textContent = "";
+      if (tryAlt) { $("host").value = host; store.set("host", host); tryAlt = false; }
+      $("settings").classList.remove("open");
+      loadInputs();
+      request("GetCurrentProgramScene", {}, r => { if (r.responseData) { pgmScene = r.responseData.sceneName || r.responseData.currentProgramSceneName; tally(); } });
+      request("BroadcastCustomEvent", { eventData: { type: "405th-hello" } });   // ask OBS for names
+    } else if (msg.op === 7) {
+      const cb = reqCb[msg.d.requestId]; if (cb) { delete reqCb[msg.d.requestId]; cb(msg.d); }
+    } else if (msg.op === 5) {
+      const t = msg.d.eventType, e = msg.d.eventData || {};
+      if (t === "InputVolumeMeters") meters(e.inputs || []);
+      else if (t === "InputVolumeChanged" && strips[e.inputName]) { const st = strips[e.inputName]; if (!st.timer && !st.el.querySelector(".fader.drag")) { st.db = e.inputVolumeDb; paint(st); } }
+      else if (t === "InputMuteStateChanged" && strips[e.inputName]) { strips[e.inputName].muted = e.inputMuted; paint(strips[e.inputName]); }
+      else if (t === "CurrentProgramSceneChanged") { pgmScene = e.sceneName; tally(); }
+      else if (t === "SceneNameChanged" && pgmScene === e.oldSceneName) { pgmScene = e.sceneName; tally(); }
+      else if (t === "InputCreated" || t === "InputRemoved" || t === "InputNameChanged") loadInputs();
+      else if (t === "CustomEvent" && e.type === "405th-state" && e.names) Names.set(e.names);
+    }
+  };
+  ws.onclose = e => {
+    ready = false;
+    setStatus(false, e.code === 4009 ? "Bad password" : "Offline");
+    if (e.code === 4009) { $("settings").classList.add("open"); $("err").textContent = "Wrong WebSocket password."; return; }
+    if (++fails >= 2 && e.code < 4000) { $("settings").classList.add("open"); $("err").innerHTML = `Can't reach OBS at <b>${url}</b>.`; }
+    tryAlt = !tryAlt;
+    retry = setTimeout(connect, 3000);
+  };
+}
+$("status").onclick = () => $("settings").classList.toggle("open");
+$("save").onclick = () => { store.set("host", $("host").value.trim()); store.set("pw", $("pw").value); reconnect(); };
+connect();
+</script>
+</body>
+</html>

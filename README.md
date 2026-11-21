@@ -14,6 +14,7 @@ Overlays, camera layouts, hotkeys and a director panel for a 2-host / 8-player s
 ├── config.local.js  ← YOUR private settings: camera links, WebSocket password, names file (never uploaded)
 ├── setup.html       ← builds your OBS scenes + hotkeys (open in Chrome/Edge)
 ├── control.html     ← Director dock: click-to-switch, custom 2/3/4-up, auto cycle
+├── mixer.html       ← Audio mixer dock: per-person faders, meters, mute
 ├── names.txt        ← sample names file (your switcher can overwrite this)
 ├── cam.html         ← one camera (used by the CAM · … sources)
 ├── link.html        ← invisible helper that sends names + cameras to remote Directors
@@ -86,6 +87,15 @@ Untick **Preview first** to go back to buttons and hotkeys cutting straight to l
 > **If `Numpad +` doesn't take:** OBS → Settings → Hotkeys → search **"Transition"** → set **Transition** (or *Quick Transition: Cut*) to `Numpad +`.
 
 > OBS's own **Preview** pane, **Multiview** and the dock's monitors all show the real picture of the queued scene.
+
+### Audio mixer dock (mixer.html)
+Add it like the Director: **Docks → Custom Browser Docks** → Name `Audio`, URL `file:///C:/Streams/405th-live/mixer.html`.
+It also works remotely at `https://<your-github-name>.github.io/<repo>/mixer.html` and shares the Director's connection settings.
+- **Hosts / Team A / Team B** strips with each person's live name, then **Other audio** (mic, desktop audio, music…).
+- **Fader** (drag, scroll for ±1 dB, double-click to reset to 0 dB), **level meter** with peak hold, **dB readout** and **Mute**.
+- A **red outline and dot** mean that person is on screen live.
+- Changes go straight to OBS's own mixer, so both always match.
+- On a remote connection, untick *Level meters* if the tunnel is slow. Meters send about 20 updates a second.
 
 ### Pinned monitors (in the dock)
 The status bar, Preview/Program monitors and TAKE stay at the top while you scroll. **Drag the small bar under TAKE**
