@@ -108,7 +108,7 @@
 </style>
 </head>
 <body class="direct">
-<div class="top"><img src="assets/emblem.png" alt=""><b>Director</b><span id="status" title="Click to show/hide connection settings">Offline ⚙</span></div>
+<div class="top"><img src="assets/emblem.png" alt=""><b>Director <small id="ver" style="font-size:11px;color:#777;letter-spacing:.05em;font-weight:600"></small></b><span id="status" title="Click to show/hide connection settings">Offline ⚙</span></div>
 
 <div id="settings">
   <label>OBS WebSocket address — <i>localhost:4455</i> on the OBS PC, <i>192.168.x.x:4455</i> on your network, or a <i>wss://</i> tunnel address for remote use</label><input id="host" value="localhost:4455">
@@ -180,7 +180,10 @@
 <script src="assets/sha256.js"></script>
 <script src="assets/cameras.js"></script>
 <script>
+const VERSION = "v5 · native scenes";   // shown next to the title, so you can tell which copy is loaded
 const L = LAYOUTS, HK = OBSCollection.HOTKEYS;
+document.getElementById("ver").textContent = VERSION;
+document.getElementById("ver").title = "Loaded from " + location.href;
 const $ = id => document.getElementById(id);
 const store = { get: k => { try { return localStorage.getItem("405th." + k); } catch (e) { return null; } },
                 set: (k, v) => { try { localStorage.setItem("405th." + k, v); } catch (e) {} } };
