@@ -104,7 +104,7 @@
 </style>
 </head>
 <body class="direct">
-<div class="top"><img src="assets/emblem.png" alt=""><b>Director</b><span id="status" title="Connection settings">Offline</span></div>
+<div class="top"><img src="assets/emblem.png" alt=""><b>Director</b><span id="status" title="Click to show/hide connection settings">Offline ⚙</span></div>
 
 <div id="settings">
   <label>OBS WebSocket address — <i>localhost:4455</i> on the OBS PC, <i>192.168.x.x:4455</i> on your network, or a <i>wss://</i> tunnel address for remote use</label><input id="host" value="localhost:4455">
@@ -331,7 +331,7 @@ setTiles($("optTiles").checked);
 
 /* ---------- obs-websocket v5 ---------- */
 let ws = null, ready = false, reqId = 0, retry = null;
-function setStatus(ok, text) { $("status").textContent = text; $("status").classList.toggle("ok", ok); }
+function setStatus(ok, text) { $("status").textContent = text + " ⚙"; $("status").classList.toggle("ok", ok); }
 let fails = 0, tryAlt = false;
 // accepts "localhost:4455", "192.168.1.50:4455", "wss://x.trycloudflare.com" or the "https://x.trycloudflare.com" cloudflared prints
 function cleanHost(h) { return h.trim().replace(/^(wss?|https?):\/\//i, "").replace(/\/+$/, "") || "localhost:4455"; }
@@ -371,6 +371,7 @@ function connect() {
       ws.send(JSON.stringify({ op: 1, d }));
     } else if (msg.op === 2) {                // Identified
       ready = true; fails = 0; setStatus(true, "Connected"); $("err").textContent = "";
+      $("status").title = "Connected to " + url + " — click to change connection";
       if (tryAlt) { $("host").value = host; store.set("host", host); tryAlt = false; }
       $("settings").classList.remove("open");
       request("GetSceneList");
