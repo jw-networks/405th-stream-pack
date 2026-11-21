@@ -68,6 +68,13 @@
   .monitors { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }   /* always side by side, so the pinned area stays short */
   #pinned { position: sticky; top: 0; z-index: 50; background: var(--bg); margin: -10px -10px 0; padding: 10px 10px 8px; }
   #pinned.scrolled { box-shadow: 0 8px 14px rgba(0,0,0,.55); border-bottom: 1px solid #2a2a2a; }
+  /* resizable monitors: drag the handle under TAKE */
+  .monitors { max-width: var(--monW, 100%); margin: 0 auto; }
+  #pinned.nomon .monitors { display: none; }
+  #grip { height: 12px; margin: 4px -10px -8px; cursor: ns-resize; display: grid; place-items: center; touch-action: none; }
+  #grip::before { content: ""; width: 46px; height: 4px; border-radius: 2px; background: #444;
+                  box-shadow: 0 -3px 0 -1px transparent; }
+  #grip:hover::before, #grip.drag::before { background: var(--cyan); }
   .mon .mt { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; font-weight: 800; letter-spacing: .12em;
              text-transform: uppercase; padding: 3px 6px; color: #fff; }
   .mon .mt span { font-weight: 600; letter-spacing: .03em; text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .9; }
@@ -146,6 +153,7 @@
   <div class="mon pgm"><div class="mt">Program <span id="pgmName">—</span></div><div class="screen"><iframe id="pgmFrame" src="stage.html?schematic" title="Program"></iframe><img class="shot" id="pgmShot" alt=""></div></div>
 </div>
 <button id="take" title="Push Preview to Program (Numpad + anywhere, or Space/Enter while this dock is focused)">Take <small>Numpad +</small></button>
+<div id="grip" title="Drag to resize the monitors · double-click to hide/show them"></div>
 </div>
 <div class="row mode"><label><input type="checkbox" id="studio"> <b>Preview first</b>&nbsp;— buttons &amp; hotkeys load Preview, TAKE goes live (OBS Studio Mode)</label></div>
 
@@ -205,7 +213,7 @@
 <script src="assets/sha256.js"></script>
 <script src="assets/cameras.js"></script>
 <script>
-const VERSION = "v7 · pinned monitors";   // shown next to the title, so you can tell which copy is loaded
+const VERSION = "v8 · resizable monitors";   // shown next to the title, so you can tell which copy is loaded
 const L = LAYOUTS, HK = OBSCollection.HOTKEYS;
 document.getElementById("ver").textContent = VERSION;
 document.getElementById("ver").title = "Loaded from " + location.href;
@@ -383,6 +391,7 @@ const fit = () => {
   document.querySelectorAll(".tile .pic iframe").forEach(f => { f.style.transform = `scale(${f.parentNode.clientWidth / 640})`; });
 };
 new ResizeObserver(fit).observe(document.body);
+new ResizeObserver(fit).observe(document.querySelector(".monitors"));
 setTiles(tileMode);
 
 /* ---------- obs-websocket v5 ---------- */
@@ -498,6 +507,44 @@ function take() {
 }
 $("take").onclick = take;
 addEventListener("scroll", () => $("pinned").classList.toggle("scrolled", scrollY > 4), { passive: true });
+
+/* ---------- resize the pinned monitors ---------- */
+// The monitors keep 16:9; dragging sets their height, which sets the width of the pair.
+function setMonH(h, save) {
+  const full = $("pinned").clientWidth - 20;                    // available width
+  const maxH = Math.min(innerHeight * 0.75, (full - 6) / 2 * 9 / 16);
+  h = Math.max(50, Math.min(maxH, h));
+  $("pinned").style.setProperty("--monW", Math.round(h * 16 / 9 * 2 + 6) + "px");
+  if (save) store.set("monH", String(Math.round(h)));
+  fit();
+}
+function setMonHidden(on, save) {
+  $("pinned").classList.toggle("nomon", on);
+  if (save) store.set("monHidden", on ? "1" : "0");
+  fit();
+}
+(() => {
+  const grip = $("grip");
+  let y0 = 0, h0 = 0;
+  grip.addEventListener("pointerdown", e => {
+    if ($("pinned").classList.contains("nomon")) { setMonHidden(false, true); }
+    const sc = document.querySelector(".mon .screen");
+    y0 = e.clientY; h0 = sc ? sc.clientHeight : 150;
+    grip.setPointerCapture(e.pointerId); grip.classList.add("drag"); e.preventDefault();
+  });
+  grip.addEventListener("pointermove", e => { if (grip.classList.contains("drag")) setMonH(h0 + (e.clientY - y0), false); });
+  const end = e => {
+    if (!grip.classList.contains("drag")) return;
+    grip.classList.remove("drag");
+    const sc = document.querySelector(".mon .screen");
+    if (sc) store.set("monH", String(Math.round(sc.clientHeight)));
+  };
+  grip.addEventListener("pointerup", end); grip.addEventListener("pointercancel", end);
+  grip.addEventListener("dblclick", () => setMonHidden(!$("pinned").classList.contains("nomon"), true));
+  if (store.get("monH")) setMonH(Number(store.get("monH")), false);
+  if (store.get("monHidden") === "1") setMonHidden(true, false);
+  addEventListener("resize", () => { if (store.get("monH")) setMonH(Number(store.get("monH")), false); });
+})();
 
 /* ---------- stream: Go live / End stream (two clicks to confirm) ---------- */
 let streaming = false, streamBusy = false, armTimer = null;

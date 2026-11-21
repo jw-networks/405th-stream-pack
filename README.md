@@ -87,6 +87,10 @@ Untick **Preview first** to go back to buttons and hotkeys cutting straight to l
 
 > OBS's own **Preview** pane, **Multiview** and the dock's monitors all show the real picture of the queued scene.
 
+### Pinned monitors (in the dock)
+The status bar, Preview/Program monitors and TAKE stay at the top while you scroll. **Drag the small bar under TAKE**
+up or down to resize the monitors, or **double-click** it to hide or show them. The dock remembers your size.
+
 ### Go live / End stream (in the dock)
 The bar at the top of the Director starts and stops your stream (using the stream settings already in OBS).
 - **Two clicks to confirm:** the first click arms it (the button turns amber and reads "Click to GO LIVE"), and the second click does it.
