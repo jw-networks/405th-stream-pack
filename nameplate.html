@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!-- Single seat nameplate.
      OBS Browser Source, width 800, height 200.
-     URL options:  ?seat=host1 | host2 | p1 … p8
+     URL options:  ?seat=host1 | host2 | p1 … p8   &tight (no margin; native NAME sources, 660 x 140 at size 24)
                    &align=right   &size=16 (scale, px)   &compact   &label=Custom   &demo -->
 <html>
 <head>
@@ -11,6 +11,7 @@
 <style>
   body { width: 100vw; height: 100vh; display: flex; align-items: flex-end; padding: 0 0 24px 24px; }
   body.right { justify-content: flex-end; padding: 0 24px 24px 0; }
+  body.tight { padding: 0; }   /* NAME sources in the native OBS setup: plate sits exactly at bottom-left */
 </style>
 </head>
 <body>
@@ -23,6 +24,7 @@
   const seat = Names.seatKey(p.get("seat") || "host1");
   const align = p.get("align") || "left";
   if (align === "right") document.body.classList.add("right");
+  if (p.has("tight")) document.body.classList.add("tight");
   const plate = makePlate(seat, { align, compact: p.has("compact") });
   if (p.get("size")) plate.style.fontSize = p.get("size") + "px";
   if (p.get("width")) plate.style.setProperty("--w", p.get("width") + "em");

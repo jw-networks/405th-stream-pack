@@ -3,8 +3,9 @@
 Overlays, camera layouts, hotkeys and a director panel for a 2-host / 8-player show
 (Team A = Players 1–4, Team B = Players 5–8).
 
-- **Cameras** come from **VDO.Ninja** links and are drawn *inside* the overlay, so they always move
-  with their frames and nameplates. There's nothing to line up in OBS.
+- **Native OBS scenes:** every camera is its own OBS source (`CAM · P3`), every nameplate is its own source (`NAME · P3`),
+  and every scene is built from them. OBS's **Multiview**, **Preview** and **Studio Mode** all show the real picture
+  of each scene, and every person gets their **own volume slider**.
 - **Names** come live from your video switcher's text file.
 
 ```
@@ -14,7 +15,9 @@ Overlays, camera layouts, hotkeys and a director panel for a 2-host / 8-player s
 ├── setup.html       ← builds your OBS scenes + hotkeys (open in Chrome/Edge)
 ├── control.html     ← Director dock: click-to-switch, custom 2/3/4-up, auto cycle
 ├── names.txt        ← sample names file (your switcher can overwrite this)
-├── stage.html       ← the overlay: all 10 cameras + frames + nameplates, follows the live OBS scene
+├── cam.html         ← one camera (used by the CAM · … sources)
+├── link.html        ← invisible helper that sends names + cameras to remote Directors
+├── stage.html       ← frames/background layers (FRAMES · … sources) and the dock's layout sketches
 ├── roster.html      ← full-screen lineup board
 ├── scene.html       ← Starting Soon / Be Right Back / Ending screens
 ├── nameplate.html   ← one seat's nameplate, for use anywhere
@@ -49,8 +52,11 @@ Save it. `config.local.js` overrides `config.js` and is listed in `.gitignore`, 
 Shared things like team names and colors and the event text stay in `config.js`. You can also override any of them in `config.local.js`.
 
 ### 4. Build the scene file
-Double-click **`setup.html`**. Check the folder path at the top (it fills itself in), then click
-**Download scene collection**. You get `405th-scenes.json`, usually in Downloads.
+Double-click **`setup.html`**. Check the folder path at the top (it fills itself in), then:
+- Pick the **transition**: **Move** (cameras slide and zoom between layouts; install the free
+  [Move Transition plugin](https://obsproject.com/forum/resources/move.913/) first), or **Fade** / **Cut** (built in).
+- Leave **Everyone's audio always on** ticked, so people stay audible when they're off screen.
+- Click **Download scene collection**. You get `405th-scenes.json`, usually in Downloads.
 
 ### 5. Import it into OBS
 1. **Settings → Video** → Base (Canvas) Resolution **1920×1080** → OK.
@@ -66,8 +72,8 @@ VDO.Ninja guest is live.
 The dock badge should turn green (**Connected**). If it says Offline, click it, paste the password, and click Connect.
 
 ### 7. Check the audio
-All camera audio comes through one mixer channel called **STAGE OVERLAY**. Set its level in the Audio Mixer.
-To mute one person, add `&noaudio` to the end of their link in `config.js`. To mute everyone, add `&noaudio` to `cameraParams`.
+Each camera has its own mixer channel: **CAM · Host 1 … CAM · P8**. Set levels or mute people right in OBS's Audio Mixer.
+To mute someone for the whole show, you can also add `&noaudio` to the end of their VDO.Ninja link.
 
 ### 8. Turn on Preview → TAKE (Studio Mode)
 In the Director dock, tick **Preview first**. This turns on OBS Studio Mode. Now:
@@ -79,23 +85,16 @@ Untick **Preview first** to go back to buttons and hotkeys cutting straight to l
 
 > **If `Numpad +` doesn't take:** OBS → Settings → Hotkeys → search **"Transition"** → set **Transition** (or *Quick Transition: Cut*) to `Numpad +`.
 
-> **Watch the dock's PREVIEW monitor, not OBS's Preview pane.** All scenes share one overlay, so OBS's own
-> Preview pane always shows the live layout. The dock's green PREVIEW monitor shows the queued layout with names,
-> and the red PROGRAM monitor shows what's live.
+> OBS's own **Preview** pane, **Multiview** and the dock's monitors all show the real picture of the queued scene.
 
 ### The camera multiview (in the dock)
-Under the Preview/Program monitors is a live tile for every seat:
+Under the Preview/Program monitors is a tile for every seat:
 - **Click a tile** to spotlight that seat. It goes to Preview when *Preview first* is on, otherwise straight to live.
 - **Tally borders:** **red** means the seat is on screen live; **green** means it's in the shot waiting in Preview.
-- The **Program** monitor shows a real picture of the live output grabbed from OBS (a few frames per second).
-  Untick *Real picture in Program monitor* to go back to the layout sketch.
-- Untick **Live camera previews** to stop the tiles if the streaming PC is working hard. Each tile is a second
-  connection to that camera.
-
-> **Audio check (important):** the dock is a web page, so if a camera page plays sound, the dock plays it through
-> your PC speakers too, and *Desktop Audio* would pick it up. VDO.Ninja tiles are muted automatically. For your
-> switcher's output pages, check once: open the dock, and if you hear a player's voice from the speakers, either set
-> `dockCameraParams` in `config.js` to the switcher's mute option (ask AVIT), or untick *Live camera previews*.
+- The **Preview** and **Program** monitors are real pictures from OBS.
+- **Camera tiles → from OBS** (default): OBS sends small snapshots of each CAM source. There are no extra
+  connections to your cameras and no audio comes out of the dock, and it works the same for remote operators.
+  *direct camera links* loads each camera in the dock instead (smoother, but a second connection per camera).
 
 ### 9. Test the hotkeys
 With NumLock on: `Numpad 0` Grid, `Alt + Numpad 7` Team A, `Numpad 3` Spotlight P3, then `Numpad +` to take.
@@ -128,20 +127,28 @@ With it off, scene keys cut straight to live.
 Change any key in **OBS → Settings → Hotkeys** (search for the scene name). A Stream Deck can switch to these scenes too.
 
 ### How it works
-Every layout scene contains the same single `STAGE OVERLAY` source, which holds all 10 cameras. When you
-change scenes, the overlay reads the new scene name and animates every camera, frame and nameplate into
-place. The cameras stay connected the whole time, so switching is instant. Scenes switch with a **Cut**,
-which is seamless because it's the same source, and the overlay does the animation.
-**If you rename scenes, rename them in `assets/layouts.js` first, then re-run setup.**
+- **10 CAM sources** (one per seat), **10 NAME sources** (nameplates) and a **FRAMES** source per layout shape
+  (background, frames, team headers, bottom bar). Every scene uses the same CAM and NAME sources, placed for that layout.
+- **ALL SEATS (audio · keep)** sits hidden off-screen in every scene. It keeps all cameras live so everyone stays audible.
+  Don't delete it. Untick *Everyone's audio always on* in setup if you'd rather only hear who's on screen.
+- **405th LINK** (invisible) sends names and camera links to remote Directors.
+- **Transitions:** with **Move**, the same camera slides from its old spot to its new one (for example a player zooming
+  from the Grid into a Spotlight). With Fade or Cut, layouts change in place.
+- **Renaming scenes:** rename them in `assets/layouts.js` first, then re-run setup. The dock and hotkeys use these names.
+
+### OBS Multiview
+**View → Multiview (Windowed)** shows Preview, Program and your scenes. Click a scene to load it into Preview,
+and double-click it to take it live. For the most shots, set **Settings → General → Multiview → Layout** to
+**"Horizontal, Top 24 Scenes"**. The scene list is ordered so the Grid, Hosts, all Spotlights, Teams and Duels come first.
 
 ### Custom 2-up / 3-up / 4-up
 In the dock under **Custom 2 / 3 / 4-up**, tap up to 4 seats in the order you want them, then click **Show**.
 2 seats sit side by side, 3 seats are two on top and one below, and 4 seats are 2×2. 1 seat goes to that seat's Spotlight.
 With **Preview first** on, the custom view loads into Preview; press TAKE to put it live.
 
-The dock **renames** the Multi-View scene to list its seats, e.g. `Multi-View A · Host 2, P7, P8`. That's how the overlay
-knows what to show, so don't rename those two scenes by hand. The dock alternates between A and B so it never
-changes the scene that's on air.
+The dock arranges the CAM and NAME sources inside a **Multi-View** scene and renames it to list its seats, e.g.
+`Multi-View A · Host 2, P7, P8`, so you can see what's in it in the scene list and Multiview. It alternates between A and B,
+so it never changes the scene that's on air. Leave the sources inside those two scenes alone; the dock manages them.
 
 ### Auto director
 Cycles shots every N seconds **on the live output** (even with Preview first on): player spotlights, host spotlights,
@@ -173,7 +180,7 @@ https page talk to a plain `ws://` address on another computer. Pick one option:
 **Security:** anyone with the address **and** password can control your OBS, including stopping the stream.
 Use a long WebSocket password, share it privately, and only run the tunnel during the show.
 
-**What the remote Director gets automatically:** once connected, the overlay running in OBS sends it the current
+**What the remote Director gets automatically:** once connected, the **405th LINK** source in OBS sends it the current
 names, team names and camera links. Remote operators don't need any files, and the camera links never go into the public repo.
 This needs the WebSocket password in the OBS PC's `config.local.js` (step 3).
 
@@ -189,8 +196,8 @@ Send the password separately. The Director remembers both on that browser.
 - Use each guest's **view** link (`https://vdo.ninja/?view=STREAMID`), the same one you'd put in a normal OBS browser source.
 - The pack adds `&cleanoutput&cover` automatically (no VDO.Ninja buttons, video fills the frame). Change this with `cameraParams` in `config.js`.
 - Quality and bitrate options work as usual on each link, e.g. `&bitrate=4000`.
-- **Changed a link during the show?** Save `config.js`, then right-click STAGE OVERLAY → **Refresh**.
-- All 10 feeds run in one browser source. On a weaker PC, add `&bitrate=2500` or similar to the player links.
+- **Changed a link during the show?** Save `config.local.js`, then right-click that seat's **CAM · …** source → **Refresh**.
+- Each CAM source renders at 1920×1080. On a weaker PC, lower the CAM sources to 1280×720 in their properties, or add `&bitrate=2500` to VDO.Ninja links.
 
 ## Names file
 Set `namesFile` in `config.js`:
@@ -219,6 +226,7 @@ Team B: Red Team
 - **Animation length:** `transitionMs` in `config.js`.
 
 ## Good to know
-- **Studio Mode:** the overlay follows the *Program* scene, so OBS's own Preview pane shows the live layout. Use the dock's PREVIEW monitor to see what's queued.
+- **Upgrading from the earlier single-overlay version:** remove the old scene collection, then re-run setup and import.
+  The custom multi-views need the new CAM/NAME sources.
 - **Testing in a browser:** open `stage.html?demo` for sample names, plus `&view=team&team=a`, `&view=versus`, `&view=duel&n=2`,
   `&view=multi&seats=p1,p5,host1`, `&view=spotlight&seat=p3`, and so on.

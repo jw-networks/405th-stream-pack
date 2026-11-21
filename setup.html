@@ -38,8 +38,15 @@
     <label for="root">Where this pack folder lives on the streaming PC (auto-detected)</label>
     <input type="text" id="root">
     <div class="note">If you move the folder later, run this page again from the new location.</div>
-    <label class="check"><input type="checkbox" id="slate">
-      <span>Show a <b>Standby</b> card on any seat whose name is blank.</span></label>
+    <label for="tr">Transition between layouts</label>
+    <select id="tr" style="padding:10px;font-size:16px;background:#0f0f0f;color:#fff;border:1px solid #333">
+      <option value="move">Move: cameras slide and zoom between layouts (needs the free Move Transition plugin)</option>
+      <option value="fade" selected>Fade (built in)</option>
+      <option value="cut">Cut (built in)</option>
+    </select>
+    <div class="note">Move plugin: <a href="https://obsproject.com/forum/resources/move.913/" target="_blank">obsproject.com/forum/resources/move.913</a>. Install it before importing if you pick Move.</div>
+    <label class="check"><input type="checkbox" id="audioAll" checked>
+      <span><b>Everyone's audio always on.</b> All 10 cameras stay live in the mix, even when they're not on screen. Each camera still gets its own volume slider.</span></label>
     <button id="go">Download scene collection</button>
   </div>
 
@@ -48,7 +55,8 @@
     <ol>
       <li>Settings → Video: Base (Canvas) Resolution <b>1920×1080</b>.</li>
       <li>Menu <b>Scene Collection → Import</b> → pick the downloaded <code>405th-scenes.json</code>, then switch to it.</li>
-      <li>Make sure each seat's VDO.Ninja link is in <code>config.js</code> → <code>cameras</code>. The cameras are drawn by the overlay, so there's nothing to place in OBS.</li>
+      <li>Camera links come from <code>config.local.js</code> → <code>cameras</code>. Each seat becomes its own <b>CAM · …</b> source, already placed in every scene. Changed a link? Right-click that CAM source → Refresh.</li>
+      <li><b>OBS Multiview:</b> View → Multiview (Windowed). For the most shots, go to Settings → General → Multiview → Layout → "Horizontal, Top 24 Scenes".</li>
       <li>Optional: <b>Docks → Custom Browser Docks</b> → add <code>control.html</code> for click-to-switch buttons (see README).</li>
     </ol>
   </div>
@@ -83,7 +91,8 @@
   document.getElementById("go").onclick = () => {
     const json = OBSCollection.build({
       root: document.getElementById("root").value.trim(),
-      slate: document.getElementById("slate").checked,
+      transition: document.getElementById("tr").value,
+      audioAll: document.getElementById("audioAll").checked,
     });
     const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" });
     const a = document.createElement("a");

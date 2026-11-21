@@ -68,6 +68,7 @@
   #vs:not(.hide) { transform: scale(1); }
   #bar { transition: opacity .45s ease, transform .6s var(--ease), border-color .5s ease; }
   #side, #title, #corner, #bar, .thead, #vs { z-index: 5; }
+  body.frames .plate, body.frames .slate, body.frames .vid { display: none !important; }
   body.schematic .slate { background-color: #232a2d; }
   body.schematic .slate img { display: none; }
   body.schematic .slate .label { font-size: 64px; font-weight: 800; color: #cfe9f1; letter-spacing: .04em; }
@@ -136,6 +137,11 @@ const DUR = Number(P.get("ms")) || C.transitionMs || 600;
 const $ = id => document.getElementById(id);
 const SCHEMATIC = P.has("schematic");   // used by the Director dock's Preview/Program monitors: no cameras, just layout + names
 if (SCHEMATIC) document.body.classList.add("schematic");
+/* FRAMES mode (native OBS setup): only background, frames, headers and bar, with see-through
+   holes where OBS places the CAM sources. Nameplates are separate NAME sources. Static. */
+const FRAMES = P.has("frames");
+const NOTINT = P.has("notint");
+if (FRAMES) document.body.classList.add("frames");
 if (P.has("guide")) document.body.classList.add("showguide");
 if (P.has("slate")) document.body.classList.add("useslate");
 if (P.get("bar") === "0") document.body.classList.add("nobar");
@@ -156,7 +162,7 @@ for (const seat of L.SEATS) {
   el.appendChild(plate);
   document.body.insertBefore(el, $("side"));
   cams[seat] = { el, plate, cur: null, from: null, to: null, base: { w: 640, h: 360 }, iframe: null };
-  const url = SCHEMATIC ? "" : cameraUrl(seat, "overlay");
+  const url = (SCHEMATIC || FRAMES) ? "" : cameraUrl(seat, "overlay");
   if (SCHEMATIC) {
     const lab = el.querySelector(".slate .label");
     lab.textContent = L.seatName(seat);
@@ -192,7 +198,8 @@ function draw(t) {
       const sc = Math.max(r.w / c.base.w, r.h / c.base.h);
       c.iframe.style.transform = `translate(-50%, -50%) scale(${sc})`;
     }
-    // cameras are drawn inside the overlay now, so no see-through holes are needed
+    // all-in-one mode draws the cameras itself; FRAMES mode cuts holes for OBS's CAM sources
+    if (FRAMES && r.w > 1 && r.h > 1) holes.push(`<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}"/>`);
   }
   $("holes").innerHTML = holes.join("");
 }
@@ -244,7 +251,7 @@ function setView(name, arg, instant) {
     if (target && c.iframe) { c.base = { w: Math.round(target.w), h: Math.round(target.h) }; c.iframe.width = c.base.w; c.iframe.height = c.base.h; }
     c.el.classList.toggle("full", !!(target && v.full));
     const team = L.teamOf(s);
-    if (v.tint && team) c.el.style.setProperty("--cyan", L.TEAMS[team].color); else c.el.style.removeProperty("--cyan");
+    if (v.tint && !NOTINT && team) c.el.style.setProperty("--cyan", L.TEAMS[team].color); else c.el.style.removeProperty("--cyan");
     c.plate.querySelector(".name").style.fontSize = "";
     const fs = target ? plateSize(target.w) : 10;
     c.plate.style.fontSize = fs + "px";
@@ -293,7 +300,7 @@ window.addEventListener("405th-multi", e => applyMulti(e.detail));
      - RELAYS names + camera links to any Director dock, so a remote dock
        (e.g. on GitHub Pages) shows the same names and camera tiles. */
   const o = C.obs || {};
-  if (SCHEMATIC || (!window.obsstudio && !P.has("ws"))) return;
+  if (SCHEMATIC || FRAMES || (!window.obsstudio && !P.has("ws"))) return;
   if (!o.address) return;
   let ws, alt = false, up = false, rid = 0;
   const state = () => ({ type: "405th-state", names: Names.snapshot(), cameras: C.cameras || {},

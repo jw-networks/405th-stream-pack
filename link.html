@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<!-- 405th LINK (native OBS setup): an invisible source that sends the current names, team names
+     and camera links to every connected Director, so a remote Director (GitHub Pages) matches the show.
+     Needs the WebSocket password in config.local.js. -->
+<html>
+<head><meta charset="utf-8"><style>html,body{background:transparent;margin:0}</style></head>
+<body>
+<script src="config.js"></script>
+<script src="config.local.js" onerror="void 0"></script>
+<script src="assets/names.js"></script>
+<script src="assets/sha256.js"></script>
+<script>
+(function () {
+  const C = window.PACK_CONFIG, o = C.obs || {};
+  if (!o.address) return;
+  let ws, alt = false, up = false, rid = 0;
+  const state = () => ({ type: "405th-state", names: Names.snapshot(), cameras: C.cameras || {},
+                         dockCameraParams: C.dockCameraParams || "", teams: C.teams });
+  const relay = () => { if (up) ws.send(JSON.stringify({ op: 6, d: { requestType: "BroadcastCustomEvent", requestId: "s" + (++rid), requestData: { eventData: state() } } })); };
+  Names.onChange(relay);
+  const open = () => {
+    let host = String(o.address).trim().replace(/^(wss?|https?):\/\//i, "").replace(/\/+$/, "");
+    if (alt) host = host.replace(/^localhost/i, "127.0.0.1");
+    alt = !alt;
+    try { ws = new WebSocket("ws://" + host); } catch (e) { return setTimeout(open, 5000); }
+    ws.onmessage = ev => {
+      const m = JSON.parse(ev.data);
+      if (m.op === 0) {
+        const d = { rpcVersion: 1, eventSubscriptions: 1 };
+        if (m.d.authentication) d.authentication = sha256b64(sha256b64((o.password || "") + m.d.authentication.salt) + m.d.authentication.challenge);
+        ws.send(JSON.stringify({ op: 1, d }));
+      } else if (m.op === 2) { up = true; relay(); }
+      else if (m.op === 5 && m.d.eventType === "CustomEvent" && m.d.eventData && m.d.eventData.type === "405th-hello") relay();
+    };
+    ws.onclose = () => { up = false; setTimeout(open, 5000); };
+  };
+  open();
+  Names.start();
+})();
+</script>
+</body>
+</html>

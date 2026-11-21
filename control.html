@@ -83,6 +83,8 @@
   button.sw.tile:hover .tl { border-color: var(--cyan); }
   .mon .shot { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
   .mon .shot.on { display: block; }
+  button.sw.tile .pic img.snap { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .opts select { background: #0f0f0f; color: #ddd; border: 1px solid #333; padding: 2px; font-size: 12px; }
   .mode label { display: block; line-height: 1.4; }
   .mode input { vertical-align: -2px; margin-right: 4px; }
   button.sw.pvw { box-shadow: inset 0 0 0 2px #1f8f4e; }
@@ -114,7 +116,7 @@
 </div>
 
 <div class="monitors">
-  <div class="mon pvw"><div class="mt">Preview <span id="pvwName">—</span></div><div class="screen"><iframe id="pvwFrame" src="stage.html?schematic" title="Preview"></iframe></div></div>
+  <div class="mon pvw"><div class="mt">Preview <span id="pvwName">—</span></div><div class="screen"><iframe id="pvwFrame" src="stage.html?schematic" title="Preview"></iframe><img class="shot" id="pvwShot" alt=""></div></div>
   <div class="mon pgm"><div class="mt">Program <span id="pgmName">—</span></div><div class="screen"><iframe id="pgmFrame" src="stage.html?schematic" title="Program"></iframe><img class="shot" id="pgmShot" alt=""></div></div>
 </div>
 <button id="take" title="Push Preview to Program (Numpad + anywhere, or Space/Enter while this dock is focused)">Take <small>Numpad +</small></button>
@@ -123,8 +125,11 @@
 <h3>Cameras · click for spotlight</h3>
 <div class="grid" id="cams"></div>
 <div class="opts">
-  <label><input type="checkbox" id="optTiles" checked> Live camera previews</label>
-  <label><input type="checkbox" id="optShot" checked> Real picture in Program monitor</label>
+  <label>Camera tiles <select id="tileMode">
+    <option value="obs">from OBS (recommended)</option>
+    <option value="direct">direct camera links</option>
+    <option value="off">off</option></select></label>
+  <label><input type="checkbox" id="optShot" checked> Real pictures in Preview/Program</label>
 </div>
 
 <h3>Layouts</h3>
@@ -217,23 +222,34 @@ for (const s of L.SEATS) {
   b.title = "Spotlight " + L.seatName(s);
   tiles[s] = { b, pic, url: cameraUrl(s, "dock") };
 }
-function setTiles(on) {
+/* Camera tiles:  obs    = snapshots of each "CAM · …" source taken by OBS (no extra camera connections,
+                           no audio from the dock, works remotely)
+                  direct = load each camera link in the dock (a second connection per camera)
+                  off    = no pictures */
+let tileMode = store.get("tileMode") || "obs";
+function setTiles(mode) {
+  if (mode === true) mode = tileMode; if (mode === false) mode = "off";
+  tileMode = mode;
   for (const [s, t] of Object.entries(tiles)) {
-    let f = t.pic.querySelector("iframe"), none = t.pic.querySelector(".none");
-    if (on && t.url) {
+    let f = t.pic.querySelector("iframe"), img = t.pic.querySelector("img.snap"), none = t.pic.querySelector(".none");
+    if (mode !== "direct" && f) f.remove();
+    if (mode !== "obs" && img) img.remove();
+    if (mode === "direct" && t.url) {
       if (!f) { f = document.createElement("iframe"); f.src = t.url; f.allow = "autoplay"; t.pic.prepend(f); }
       else if (f.getAttribute("src") !== t.url) f.src = t.url;
       if (none) none.remove();
+    } else if (mode === "obs") {
+      if (!img) { img = document.createElement("img"); img.className = "snap"; img.alt = ""; t.pic.prepend(img); }
+      if (none) none.remove();
     } else {
-      if (f) f.remove();
       if (!none) { none = document.createElement("div"); none.className = "none"; t.pic.prepend(none); }
-      none.textContent = t.url ? "Preview off" : "No camera link";
+      none.textContent = mode === "off" ? "Preview off" : "No camera link";
     }
   }
   fit();
 }
-$("optTiles").checked = store.get("tiles") !== "0";
-$("optTiles").onchange = () => { store.set("tiles", $("optTiles").checked ? "1" : "0"); setTiles($("optTiles").checked); };
+$("tileMode").value = tileMode;
+$("tileMode").onchange = () => { store.set("tileMode", $("tileMode").value); setTiles($("tileMode").value); };
 for (const s of L.SEATS.filter(s => s[0] === "p")) btn($("inter"), "Interview · " + L.seatName(s), "Player " + s.slice(1), s);
 [["Starting Soon","Starting"],["Be Right Back","BRB"],["Ending","Ending"],["Roster","Lineup"]].forEach(([sc, n]) =>
   btn($("screens"), sc, "Screen").querySelector(".n").textContent = n);
@@ -265,7 +281,7 @@ function applyState(d) {
   if (typeof d.dockCameraParams === "string") window.PACK_CONFIG.dockCameraParams = d.dockCameraParams;
   if (d.cameras) {
     for (const [s, t] of Object.entries(tiles)) t.url = cameraUrlFrom(d.cameras[s], "dock");
-    setTiles($("optTiles").checked);
+    setTiles(tileMode);
   }
   if (d.names) Names.set(d.names);
 }
@@ -302,7 +318,6 @@ function tally() {
 }
 function markLive(scene) {
   liveScene = pgmScene = scene;
-  if (typeof shotFails !== "undefined") shotFails = 0;
   setTimeout(tally);
   for (const b of buttons) b.classList.toggle("live", b.dataset.scene === scene);
   $("pgmName").textContent = scene || "—";
@@ -310,6 +325,7 @@ function markLive(scene) {
 }
 function markPvw(scene) {
   pvwScene = studio ? scene : "";
+  if (!pvwScene) $("pvwShot").classList.remove("on");
   setTimeout(tally);
   for (const b of buttons) b.classList.toggle("pvw", !!pvwScene && b.dataset.scene === pvwScene);
   $("pvwName").textContent = pvwScene || (studio ? "—" : "off");
@@ -327,7 +343,7 @@ const fit = () => {
   document.querySelectorAll(".tile .pic iframe").forEach(f => { f.style.transform = `scale(${f.parentNode.clientWidth / 640})`; });
 };
 new ResizeObserver(fit).observe(document.body);
-setTiles($("optTiles").checked);
+setTiles(tileMode);
 
 /* ---------- obs-websocket v5 ---------- */
 let ws = null, ready = false, reqId = 0, retry = null;
@@ -401,13 +417,7 @@ function connect() {
       if (r.requestType === "GetCurrentPreviewScene" && r.responseData)
         markPvw(r.responseData.sceneName || r.responseData.currentPreviewSceneName);
       if (r.requestType === "GetStudioModeEnabled" && r.responseData) setStudio(r.responseData.studioModeEnabled);
-      if (r.requestType === "GetSourceScreenshot") {
-        shotBusy = false;
-        if (r.requestStatus.result && r.responseData && r.responseData.imageData) {
-          shotFails = 0; $("pgmShot").src = r.responseData.imageData; $("pgmShot").classList.toggle("on", $("optShot").checked);
-        } else { shotFails++; $("pgmShot").classList.remove("on"); }
-        return;
-      }
+      if (reqCb[r.requestId]) { const cb = reqCb[r.requestId]; delete reqCb[r.requestId]; cb(r); return; }
       if (r.requestType === "GetSceneList" && r.responseData) learnScenes(r.responseData.scenes.map(x => x.sceneName));
       if (!r.requestStatus.result && r.requestType !== "GetCurrentPreviewScene") $("err").textContent = r.requestStatus.comment || "Request failed";
     }
@@ -426,9 +436,12 @@ function connect() {
     retry = setTimeout(connect, 3000);
   };
 }
-function request(type, data) {
-  if (!ready) { $("settings").classList.add("open"); return; }
-  ws.send(JSON.stringify({ op: 6, d: { requestType: type, requestId: "r" + (++reqId), requestData: data || {} } }));
+const reqCb = {};
+function request(type, data, cb) {
+  if (!ready) { if (!cb) $("settings").classList.add("open"); return; }
+  const id = "r" + (++reqId);
+  if (cb) reqCb[id] = cb;
+  ws.send(JSON.stringify({ op: 6, d: { requestType: type, requestId: id, requestData: data || {} } }));
 }
 function go(scene) {      // buttons + picker: Preview when "Preview first" is on, otherwise straight to Program
   request(studio ? "SetCurrentPreviewScene" : "SetCurrentProgramScene", { sceneName: scene });
@@ -441,16 +454,50 @@ function take() {
 }
 $("take").onclick = take;
 
-/* real picture of Program, grabbed from OBS a few times a second */
-var shotBusy = false, shotFails = 0;
+/* real pictures, grabbed from OBS: Program + Preview monitors and (in "from OBS" mode) the camera tiles.
+   One request at a time, round-robin, so it's light enough to run through a remote tunnel. */
+var shotBusy = false, shotTick = 0, tileIdx = 0, shotFails = 0;
+const failCount = {};
 $("optShot").checked = store.get("shot") !== "0";
-$("optShot").onchange = () => { store.set("shot", $("optShot").checked ? "1" : "0"); if (!$("optShot").checked) $("pgmShot").classList.remove("on"); };
-setInterval(() => {
-  if (!ready || shotBusy || !$("optShot").checked || !pgmScene || shotFails > 5) return;
+$("optShot").onchange = () => {
+  store.set("shot", $("optShot").checked ? "1" : "0");
+  if (!$("optShot").checked) ["pgmShot", "pvwShot"].forEach(id => $(id).classList.remove("on"));
+};
+function snap(sourceName, width, done) {
+  if ((failCount[sourceName] || 0) > 4) return false;
   shotBusy = true;
-  request("GetSourceScreenshot", { sourceName: pgmScene, imageFormat: "jpg", imageWidth: 480, imageCompressionQuality: 65 });
-  setTimeout(() => shotBusy = false, 2000);   // safety
-}, 300);
+  const t = setTimeout(() => shotBusy = false, 2500);
+  request("GetSourceScreenshot", { sourceName, imageFormat: "jpg", imageWidth: width, imageCompressionQuality: 60 }, r => {
+    clearTimeout(t); shotBusy = false;
+    const ok = r.requestStatus.result && r.responseData && r.responseData.imageData;
+    failCount[sourceName] = ok ? 0 : (failCount[sourceName] || 0) + 1;
+    done(ok ? r.responseData.imageData : null);
+  });
+  return true;
+}
+function monitorShot(imgId, scene) {
+  return snap(scene, 480, data => {
+    if (data && $("optShot").checked) { $(imgId).src = data; $(imgId).classList.add("on"); }
+    else if (!data) $(imgId).classList.remove("on");
+  });
+}
+setInterval(() => {
+  if (!ready || shotBusy) return;
+  const slot = shotTick++ % 3;
+  if (slot === 0 && $("optShot").checked && pgmScene && monitorShot("pgmShot", pgmScene)) return;
+  if (slot === 1 && $("optShot").checked && studio && pvwScene && monitorShot("pvwShot", pvwScene)) return;
+  if (tileMode === "obs") {
+    const seat = L.SEATS[tileIdx++ % L.SEATS.length];
+    const t = tiles[seat], name = "CAM · " + L.seatName(seat);
+    if (!snap(name, 320, data => {
+      const img = t.pic.querySelector("img.snap");
+      if (img && data) img.src = data;
+      if (!data && (failCount[name] || 0) > 4) { setTiles("obs"); const n = document.createElement("div"); n.className = "none"; n.textContent = "No CAM source in OBS"; t.pic.prepend(n); }
+    })) return;
+  }
+}, 110);
+// a scene renamed/changed: let its picture be retried
+const resetShots = () => Object.keys(failCount).forEach(k => { if (!k.startsWith("CAM · ")) failCount[k] = 0; });
 $("studio").onchange = () => {
   const on = $("studio").checked;
   setStudio(on);                                   // take effect in the dock immediately
@@ -510,24 +557,51 @@ const multiNames = Object.fromEntries(MULTI_BASES.map(b => [b, b]));
 function learnScenes(list) {
   for (const name of list) { const b = L.multiBase(name); if (b) multiNames[b] = name; }
 }
+const multiItems = {};    // base -> { sourceName: sceneItemId }  (ids survive renames)
 function showPicks(seats) {
   seats = seats.slice(0, 4);
   if (!seats.length) return;
   if (seats.length === 1) { go("Spotlight · " + L.seatName(seats[0])); return; }
-  // never rename the scene that is on air: use the other Multi-View
+  // never touch the scene that is on air: build in the other Multi-View
   const liveBase = L.multiBase(pgmScene);
   const base = liveBase === MULTI_BASES[0] ? MULTI_BASES[1] : MULTI_BASES[0];
   const oldName = multiNames[base];
   const newName = L.multiName(base, seats);
-  const reqs = [];
-  if (oldName !== newName) reqs.push(["SetSceneName", { sceneName: oldName, newSceneName: newName }]);
-  reqs.push([studio ? "SetCurrentPreviewScene" : "SetCurrentProgramScene", { sceneName: newName }]);
-  batch(reqs, results => {
-    const bad = results.filter(r => !r.requestStatus.result);
-    if (!bad.length) multiNames[base] = newName;
-    $("pickMsg").textContent = bad.length ? bad.map(r => r.requestType + ": " + (r.requestStatus.comment || "failed")).join("; ")
-      + " — if the scene list changed, click Clear and try again." : "";
-    if (bad.length) request("GetSceneList");
+  const run = () => {
+    const ids = multiItems[base] || {};
+    const v = L.view("multi", seats);
+    const reqs = [];
+    const xf = (name, t) => ids[name] != null && reqs.push(["SetSceneItemTransform", { sceneName: oldName, sceneItemId: ids[name], sceneItemTransform: t }]);
+    const en = (name, on) => ids[name] != null && reqs.push(["SetSceneItemEnabled", { sceneName: oldName, sceneItemId: ids[name], sceneItemEnabled: on }]);
+    for (const s of L.SEATS) {
+      const r = v.rects[s], cam = "CAM · " + L.seatName(s), nm = "NAME · " + L.seatName(s);
+      if (r) {
+        xf(cam, { positionX: r.x, positionY: r.y, alignment: 5, rotation: 0, scaleX: 1, scaleY: 1,
+                  boundsType: "OBS_BOUNDS_SCALE_INNER", boundsAlignment: 0, boundsWidth: r.w, boundsHeight: r.h,
+                  cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0 });
+        const p = L.plateXform(r, false);
+        xf(nm, { positionX: p.x, positionY: p.y, alignment: 5, rotation: 0, scaleX: p.scale, scaleY: p.scale,
+                 boundsType: "OBS_BOUNDS_NONE", cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0 });
+      }
+      en(cam, !!r); en(nm, !!r);
+    }
+    for (const n of [2, 3, 4]) en("FRAMES · multi" + n, seats.length === n);
+    if (!reqs.length) { $("pickMsg").textContent = `"${oldName}" has no CAM sources. Re-import the scene collection from setup.html.`; return; }
+    if (oldName !== newName) reqs.push(["SetSceneName", { sceneName: oldName, newSceneName: newName }]);
+    reqs.push([studio ? "SetCurrentPreviewScene" : "SetCurrentProgramScene", { sceneName: newName }]);
+    batch(reqs, results => {
+      const bad = results.filter(r => !r.requestStatus.result);
+      if (!bad.find(r => r.requestType === "SetSceneName")) multiNames[base] = newName;
+      resetShots();
+      $("pickMsg").textContent = bad.length ? bad.map(r => r.requestType + ": " + (r.requestStatus.comment || "failed")).join("; ") : "";
+      if (bad.length) request("GetSceneList");
+    });
+  };
+  if (multiItems[base]) return run();
+  request("GetSceneItemList", { sceneName: oldName }, r => {
+    if (!r.requestStatus.result) { $("pickMsg").textContent = `Can't find scene "${oldName}". Re-import the scene collection from setup.html.`; request("GetSceneList"); return; }
+    multiItems[base] = Object.fromEntries(r.responseData.sceneItems.map(it => [it.sourceName, it.sceneItemId]));
+    run();
   });
 }
 $("pickGo").onclick = () => { if (!studio) stopAuto(); showPicks(picks); };

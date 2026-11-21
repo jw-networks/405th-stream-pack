@@ -51,9 +51,10 @@
     }, extra);
   }
 
-  function item(src, id, rect) {
+  /* place: { rect } = fit inside rect (cameras/screens) | { x, y, scale } = position + scale (nameplates) | null = full canvas */
+  function item(src, id, place, hidden) {
     const it = {
-      name: src.name, source_uuid: src.uuid, visible: true, locked: false, rot: 0.0,
+      name: src.name, source_uuid: src.uuid, visible: !hidden, locked: false, rot: 0.0,
       scale_ref: { x: 1920.0, y: 1080.0 },
       align: 5, bounds_type: 0, bounds_align: 0, bounds_crop: false, bounds: { x: 0.0, y: 0.0 },
       pos: { x: 0.0, y: 0.0 }, scale: { x: 1.0, y: 1.0 },
@@ -61,23 +62,29 @@
       id, group_item_backup: false, scale_filter: "disable", blend_method: "default", blend_type: "normal",
       show_transition: { duration: 0 }, hide_transition: { duration: 0 }, private_settings: {}
     };
-    if (rect) {
-      it.pos = { x: rect.x, y: rect.y };
+    if (place && place.rect) {
+      const r = place.rect;
+      it.pos = { x: r.x, y: r.y };
       it.bounds_type = 2;             // scale to inner bounds
-      it.bounds = { x: rect.w, y: rect.h };
+      it.bounds = { x: r.w, y: r.h };
       it.bounds_crop = true;
+    } else if (place) {
+      it.pos = { x: place.x, y: place.y };
+      it.scale = { x: place.scale, y: place.scale };
     }
     return it;
   }
 
+  /* entries: [source, place, hidden] bottom -> top */
   function scene(name, entries) {
-    const items = entries.map(([src, rect, hidden], i) => { const it = item(src, i + 1, rect); if (hidden) it.visible = false; return it; });
+    const items = entries.map(([src, place, hidden], i) => item(src, i + 1, place, hidden));
     const s = source("scene", name, { id_counter: items.length, custom_size: false, items }, { mixers: 0 });
     const hk = HOTKEYS[name];
     s.hotkeys = { "OBSBasic.SelectScene": hk ? [Object.assign({}, hk.control ? { control: true } : {}, hk.alt ? { alt: true } : {}, { key: hk.key })] : [] };
     return s;
   }
 
+  /* opts: { root, transition: "move" | "fade" | "cut", audioAll: true } */
   function build(opts) {
     const rootDir = String(opts.root || "").replace(/\\/g, "/").replace(/\/+$/, "");
     const file = rel => rootDir + "/" + rel;
@@ -86,31 +93,65 @@
       fps_custom: false, reroute_audio: false, restart_when_active: false, shutdown: false,
       webpage_control_level: 2, css: ""
     }, extra));
-
     const sources = [];
-    // One overlay holds all 10 VDO.Ninja cameras + frames. Audio from the cameras goes to the OBS mixer.
-    const stage = browser("STAGE OVERLAY", "stage.html", { reroute_audio: true });
-    if (opts.slate) stage.settings.local_file = file("presets/stage-slate.html");
+
+    /* ---- shared sources: one per camera, one per nameplate, one per layout shape ---- */
+    const CAM = {}, NAME = {}, FR = {};
+    for (const s of L.SEATS) {
+      // each camera is its own source -> own mixer channel + volume
+      CAM[s] = browser("CAM · " + L.seatName(s), "presets/cam-" + s + ".html", { reroute_audio: true });
+      NAME[s] = browser("NAME · " + L.seatName(s), "presets/name-" + s + ".html", { width: L.PLATE.w, height: L.PLATE.h });
+      sources.push(CAM[s], NAME[s]);
+    }
+    for (const id of Object.keys(L.FRAMES)) { FR[id] = browser("FRAMES · " + id, "presets/frames-" + id + ".html"); sources.push(FR[id]); }
+    const link = browser("405th LINK", "link.html", { width: 16, height: 16 });
+    sources.push(link);
+
+    /* every camera always "on" so everyone stays audible, whatever is on screen */
+    const allSeats = scene("ALL SEATS (audio · keep)", L.SEATS.map(s => [CAM[s], { rect: { x: 0, y: 0, w: 192, h: 108 } }]));
+    const OFF = { x: -4000, y: -4000, scale: 0.1 };   // placed off-canvas: active but never seen
+
+    const base = () => [ ...(opts.audioAll !== false ? [[allSeats, OFF]] : []) ];
+    const tail = () => [[link, { x: -100, y: -100, scale: 1 }]];
+
+    const layoutScenes = L.SCENES.map(def => {
+      if (def.multi) {
+        const v = L.view("multi", ["p1", "p2"]);
+        const e = base();
+        for (const s of L.SEATS) e.push([CAM[s], { rect: v.rects[s] || L.GRID[s] }, !v.rects[s]]);
+        e.push([FR.multi2, null], [FR.multi3, null, true], [FR.multi4, null, true]);
+        for (const s of L.SEATS) e.push([NAME[s], L.plateXform(v.rects[s] || L.GRID[s], false), !v.rects[s]]);
+        return scene(def.scene, e.concat(tail()));
+      }
+      const v = L.view(def.view, def.arg);
+      const seats = L.SEATS.filter(s => v.rects[s]);
+      const e = base();
+      for (const s of seats) e.push([CAM[s], { rect: v.rects[s] }]);
+      e.push([FR[L.framesFor(def)], null]);
+      for (const s of seats) e.push([NAME[s], L.plateXform(v.rects[s], !!v.full)]);
+      return scene(def.scene, e.concat(tail()));
+    });
+
     const starting = browser("Starting Soon screen", "presets/starting-soon-10min.html", { restart_when_active: true });
     const brb = browser("BRB screen", "presets/brb-5min.html", { restart_when_active: true });
     const ending = browser("Ending screen", "presets/ending.html", { restart_when_active: true });
     const roster = browser("Roster board", "presets/roster.html");
-    sources.push(stage, starting, brb, ending, roster);
-
-    // Every layout scene is just the overlay; the overlay reads the scene name and animates.
-    const layoutScenes = L.SCENES.map(def => scene(def.scene, [[stage, null]]));
+    sources.push(starting, brb, ending, roster);
     const extraScenes = [
-      scene("Roster", [[roster, null]]),
-      scene("Starting Soon", [[starting, null]]),
-      scene("Be Right Back", [[brb, null]]),
-      scene("Ending", [[ending, null]]),
+      scene("Roster", [...base(), [roster, null], ...tail()]),
+      scene("Starting Soon", [[starting, null], ...tail()]),
+      scene("Be Right Back", [[brb, null], ...tail()]),
+      scene("Ending", [[ending, null], ...tail()]),
     ];
-    const allScenes = [...layoutScenes, ...extraScenes];
+
+    // scene order: the most useful shots first, so OBS's Multiview (Top 24) shows them
+    const allScenes = [...layoutScenes, ...extraScenes, allSeats];
     sources.push(...allScenes);
 
-    // Same source in every layout scene + "Cut" = no flash; the overlay does the animation itself.
-    const transitions = [];
-    const current = "Cut";
+    /* transitions: Move (plugin) slides the shared cameras between layouts; Fade / Cut are built in */
+    const tr = opts.transition || "fade";
+    const transitions = tr === "move" ? [{ name: "Move", id: "move_transition", settings: {} }] : [];
+    const current = tr === "move" ? "Move" : tr === "cut" ? "Cut" : "Fade";
 
     return {
       current_scene: "Grid",
@@ -119,16 +160,16 @@
       name: opts.name || "405th Stream Pack",
       sources,
       groups: [],
-      // Quick transitions: in Studio Mode their hotkeys push Preview -> Program. "Cut" gets the TAKE key.
+      // Quick transitions: in Studio Mode their hotkeys push Preview -> Program. TAKE uses your chosen transition.
       quick_transitions: [
-        { name: "Cut", duration: 300, hotkeys: [TAKE_KEY], id: 1, fade_to_black: false },
-        { name: "Fade", duration: 300, hotkeys: [], id: 2, fade_to_black: false },
+        { name: current, duration: tr === "cut" ? 300 : 600, hotkeys: [TAKE_KEY], id: 1, fade_to_black: false },
+        { name: "Cut", duration: 300, hotkeys: [], id: 2, fade_to_black: false },
         { name: "Fade", duration: 300, hotkeys: [], id: 3, fade_to_black: true }
       ],
       transitions,
       saved_projectors: [],
       current_transition: current,
-      transition_duration: 300,
+      transition_duration: tr === "cut" ? 300 : 600,
       preview_locked: false,
       scaling_enabled: false,
       scaling_level: 0,

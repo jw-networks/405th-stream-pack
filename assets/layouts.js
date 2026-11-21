@@ -115,7 +115,27 @@
   }
   const multiBase = name => { const v = sceneToView(name); return v && v.multi ? v.scene : null; };
 
-  const api = { W, H, SEATS, GRID, UP, SIDE, TEAMS, teamOf, view, SCENES, sceneToView, seatName, multiName, multiBase };
+  /* ---- native OBS setup: where each seat's NAME source goes in a layout ----
+     NAME sources are 660 x 140 browser sources rendered at plate size 24, scaled per layout. */
+  const PLATE = { w: 660, h: 140, base: 24 };
+  function plateXform(r, full) {
+    const fs = Math.max(10, Math.min(24, r.w / 50));
+    const sc = fs / PLATE.base, inset = full ? 56 : 0;
+    return { x: r.x + inset, y: r.y + r.h - inset - PLATE.h * sc, scale: sc };
+  }
+  /* which FRAMES source a scene uses (one per layout shape) */
+  function framesFor(def) {
+    if (def.view === "team") return "team-" + def.arg;
+    if (def.view === "multi") return null;              // multi scenes switch between multi2/3/4
+    return def.view;                                    // grid, hosts, versus, duel, spotlight, interview
+  }
+  const FRAMES = {   // FRAMES source id -> overlay URL options
+    grid: "view=grid", hosts: "view=hosts", "team-a": "view=team&team=a", "team-b": "view=team&team=b",
+    versus: "view=versus", duel: "view=duel&n=1", spotlight: "view=spotlight&seat=p1", interview: "view=interview&seat=p1",
+    multi2: "view=multi&seats=p1,p2&notint", multi3: "view=multi&seats=p1,p2,p3&notint", multi4: "view=multi&seats=p1,p2,p3,p4&notint"
+  };
+
+  const api = { PLATE, plateXform, framesFor, FRAMES, W, H, SEATS, GRID, UP, SIDE, TEAMS, teamOf, view, SCENES, sceneToView, seatName, multiName, multiBase };
   if (typeof window !== "undefined") window.LAYOUTS = api;
   else globalThis.LAYOUTS = api;
 })();
