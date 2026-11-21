@@ -27,11 +27,15 @@ const cv = document.getElementById("c"), g = cv.getContext("2d");
 
 /* timing for each stinger (seconds). "cover" = the moment the screen is fully covered:
    that's the Transition Point to set in OBS. */
-const STINGERS = {
+/* SLOW stretches a stinger's whole animation in time (1 = as designed). */
+const SLOW = { hex: 1.4, blade: 1.45, versus: 1.0 };
+const BASE = {
   hex:    { duration: 1.40, cover: 0.62 },
   blade:  { duration: 0.95, cover: 0.38 },
   versus: { duration: 1.50, cover: 0.62 },
 };
+const STINGERS = Object.fromEntries(Object.entries(BASE).map(([k, v]) =>
+  [k, { duration: +(v.duration * SLOW[k]).toFixed(3), cover: +(v.cover * SLOW[k]).toFixed(3) }]));
 window.STINGERS = STINGERS;
 
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
@@ -207,7 +211,7 @@ function drawVersus(t) {
 const DRAW = { hex: drawHex, blade: drawBlade, versus: drawVersus };
 window.renderAt = function (t) {
   g.clearRect(0, 0, W, H);
-  DRAW[STYLE](t);
+  DRAW[STYLE](t / SLOW[STYLE]);
 };
 function play() {
   document.body.classList.add("preview");

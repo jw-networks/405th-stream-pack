@@ -80,7 +80,13 @@
   .trb:hover { border-top-color: var(--cyan); }
   .trb.on { background: var(--teal); color: #fff; border-top-color: var(--cyan); }
   .trb.stg { box-shadow: inset 0 -2px 0 rgba(92,203,233,.45); }
-  #vsWrap { display: flex; align-items: center; gap: 5px; color: #ccc; margin-left: auto; cursor: pointer; }
+  #vsWrap { margin-left: auto; cursor: pointer; }
+  #vsWrap input { display: none; }
+  #vsWrap .pill { display: inline-block; padding: 5px 9px; background: #262626; border-top: 2px solid #333; color: #ccc;
+                  font: 800 13px var(--font); font-variation-settings: "wdth" 75; letter-spacing: .06em; text-transform: uppercase; }
+  #vsWrap .pill b { margin-left: 6px; padding: 1px 6px; background: #444; color: #ddd; }
+  #vsWrap input:checked + .pill { border-top-color: var(--tb); color: #fff; }
+  #vsWrap input:checked + .pill b { background: linear-gradient(90deg, var(--ta), var(--tb)); color: #111; }
   #grip { height: 12px; margin: 4px -10px -8px; cursor: ns-resize; display: grid; place-items: center; touch-action: none; }
   #grip::before { content: ""; width: 46px; height: 4px; border-radius: 2px; background: #444;
                   box-shadow: 0 -3px 0 -1px transparent; }
@@ -176,7 +182,7 @@
 </div>
 <button id="take" title="Push Preview to Program (Numpad + anywhere, or Space/Enter while this dock is focused)">Take <small>Numpad +</small></button>
 <div class="trans" id="trans"><span class="tl">Transition</span><span id="trBtns"><i style="color:#666">connect to load…</i></span>
-  <label id="vsWrap" style="display:none"><input type="checkbox" id="vsTeam"> Versus on team scenes</label></div>
+  <label id="vsWrap" style="display:none" title="Play the Versus stinger whenever you switch to Team A, Team B, Versus or a Duel"><input type="checkbox" id="vsTeam"><span class="pill">VS on team scenes <b id="vsState">OFF</b></span></label></div>
 <div id="grip" title="Drag to resize the monitors · double-click to hide/show them"></div>
 </div>
 <div class="row mode"><label><input type="checkbox" id="studio"> <b>Preview first</b>&nbsp;— buttons &amp; hotkeys load Preview, TAKE goes live (OBS Studio Mode)</label></div>
@@ -240,7 +246,7 @@
 <script src="assets/sha256.js"></script>
 <script src="assets/cameras.js"></script>
 <script>
-const VERSION = "v11 · transition picker";   // shown next to the title, so you can tell which copy is loaded
+const VERSION = "v12 · stinger switch";   // shown next to the title, so you can tell which copy is loaded
 const L = LAYOUTS, HK = OBSCollection.HOTKEYS;
 document.getElementById("ver").textContent = VERSION;
 document.getElementById("ver").title = "Loaded from " + location.href;
@@ -610,16 +616,18 @@ function loadTransitions() {
     $("vsWrap").style.display = hasVs ? "" : "none";
     if (hasVs) request("GetSceneSceneTransitionOverride", { sceneName: "Teams · Versus" }, o => {
       $("vsTeam").checked = !!(o.requestStatus.result && o.responseData && o.responseData.transitionName === VERSUS_STINGER);
+      $("vsState").textContent = $("vsTeam").checked ? "ON" : "OFF";
     });
   });
 }
 const teamScenes = () => L.SCENES.filter(d => d.view === "team" || d.view === "versus" || d.view === "duel").map(d => d.scene);
 $("vsTeam").onchange = () => {
   const on = $("vsTeam").checked;
+  $("vsState").textContent = on ? "ON" : "OFF";
   batch(teamScenes().map(sc => ["SetSceneSceneTransitionOverride",
     { sceneName: sc, transitionName: on ? VERSUS_STINGER : null, transitionDuration: null }]), results => {
     const bad = results.filter(r => !r.requestStatus.result);
-    if (bad.length) { $("vsTeam").checked = !on; $("err").textContent = "Couldn't change the Versus override: " + (bad[0].requestStatus.comment || "failed"); }
+    if (bad.length) { $("vsTeam").checked = !on; $("vsState").textContent = !on ? "ON" : "OFF"; $("err").textContent = "Couldn't change the Versus override: " + (bad[0].requestStatus.comment || "failed"); }
   });
 };
 

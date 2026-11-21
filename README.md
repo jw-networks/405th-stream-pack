@@ -171,15 +171,16 @@ Three branded stingers live in `stingers/` (transparent 1080p60 WebM):
 
 | Stinger | Length | Transition point | Use |
 |---|---|---|---|
-| **405th Hex Sweep** | 1.4 s | 620 ms | main transition: honeycomb sweep + emblem |
-| **405th Blade** | 0.97 s | 380 ms | quick cut: angled panels slam together |
+| **405th Hex Sweep** | 1.96 s | 868 ms | main transition: honeycomb sweep + emblem |
+| **405th Blade** | 1.4 s | 551 ms | angled panels slam together |
 | **405th Versus** | 1.5 s | 620 ms | team colors collide with the VS badge |
 
 - **With setup.html:** pick *Hex Sweep* or *Blade* as the transition. TAKE and Numpad + use it, and all three are added to OBS's transition list.
   Tick *Play the Versus stinger…* and OBS plays Versus whenever you switch **to** Team A, Team B, Versus or a Duel
   (a per-scene *Transition Override*, which you can change by right-clicking a scene).
 - **From the Director:** the **Transition** row under TAKE switches the active transition (Cut, Fade, Hex Sweep, Blade, Move…)
-  with one click, and **Versus on team scenes** turns the automatic Versus stinger on or off.
+  with one click, and the **VS on team scenes** switch turns the automatic Versus stinger on or off.
+  For a plain show, pick **Fade** and set **VS on team scenes** to OFF.
   The TAKE button and scene buttons use whatever is selected. *Numpad +* is tied to the transition chosen in setup.
   To make Numpad + follow the Director's choice too, go to OBS → Settings → Hotkeys: clear Numpad + from
   "Quick Transition: …" and set it on **Transition** instead.

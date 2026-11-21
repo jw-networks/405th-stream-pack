@@ -33,8 +33,8 @@
 
   /* 405th stingers (stingers/*.webm). point = Transition Point in ms (the frame where the screen is fully covered). */
   const STINGERS = [
-    { key: "stinger-hex",    name: "405th Hex Sweep", file: "405th-hex.webm",    point: 620 },
-    { key: "stinger-blade",  name: "405th Blade",     file: "405th-blade.webm",  point: 380 },
+    { key: "stinger-hex",    name: "405th Hex Sweep", file: "405th-hex.webm",    point: 868 },
+    { key: "stinger-blade",  name: "405th Blade",     file: "405th-blade.webm",  point: 551 },
     { key: "stinger-versus", name: "405th Versus",    file: "405th-versus.webm", point: 620 },
   ];
 
