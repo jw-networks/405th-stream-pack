@@ -71,6 +71,16 @@
   /* resizable monitors: drag the handle under TAKE */
   .monitors { max-width: var(--monW, 100%); margin: 0 auto; }
   #pinned.nomon .monitors { display: none; }
+  /* transition picker (pinned, under TAKE) */
+  .trans { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 6px; font-size: 12px; }
+  .trans .tl { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+  #trBtns { display: contents; }
+  .trb { padding: 5px 9px; border: 0; cursor: pointer; background: #262626; color: #ddd; border-top: 2px solid #333;
+         font: 800 13px var(--font); font-variation-settings: "wdth" 75; letter-spacing: .06em; text-transform: uppercase; }
+  .trb:hover { border-top-color: var(--cyan); }
+  .trb.on { background: var(--teal); color: #fff; border-top-color: var(--cyan); }
+  .trb.stg { box-shadow: inset 0 -2px 0 rgba(92,203,233,.45); }
+  #vsWrap { display: flex; align-items: center; gap: 5px; color: #ccc; margin-left: auto; cursor: pointer; }
   #grip { height: 12px; margin: 4px -10px -8px; cursor: ns-resize; display: grid; place-items: center; touch-action: none; }
   #grip::before { content: ""; width: 46px; height: 4px; border-radius: 2px; background: #444;
                   box-shadow: 0 -3px 0 -1px transparent; }
@@ -165,6 +175,8 @@
   <div class="mon pgm"><div class="mt">Program <span id="pgmName">—</span></div><div class="screen"><iframe id="pgmFrame" src="stage.html?schematic" title="Program"></iframe><img class="shot" id="pgmShot" alt=""></div></div>
 </div>
 <button id="take" title="Push Preview to Program (Numpad + anywhere, or Space/Enter while this dock is focused)">Take <small>Numpad +</small></button>
+<div class="trans" id="trans"><span class="tl">Transition</span><span id="trBtns"><i style="color:#666">connect to load…</i></span>
+  <label id="vsWrap" style="display:none"><input type="checkbox" id="vsTeam"> Versus on team scenes</label></div>
 <div id="grip" title="Drag to resize the monitors · double-click to hide/show them"></div>
 </div>
 <div class="row mode"><label><input type="checkbox" id="studio"> <b>Preview first</b>&nbsp;— buttons &amp; hotkeys load Preview, TAKE goes live (OBS Studio Mode)</label></div>
@@ -228,7 +240,7 @@
 <script src="assets/sha256.js"></script>
 <script src="assets/cameras.js"></script>
 <script>
-const VERSION = "v10 · fast monitors";   // shown next to the title, so you can tell which copy is loaded
+const VERSION = "v11 · transition picker";   // shown next to the title, so you can tell which copy is loaded
 const L = LAYOUTS, HK = OBSCollection.HOTKEYS;
 document.getElementById("ver").textContent = VERSION;
 document.getElementById("ver").title = "Loaded from " + location.href;
@@ -446,7 +458,7 @@ function connect() {
   ws.onmessage = ev => {
     const msg = JSON.parse(ev.data);
     if (msg.op === 0) {                       // Hello
-      const d = { rpcVersion: 1, eventSubscriptions: 1 | 4 | 64 | 1024 };   // General (relay) + Scenes + Outputs (stream) + UI (Studio Mode)
+      const d = { rpcVersion: 1, eventSubscriptions: 1 | 4 | 16 | 64 | 1024 };   // General (relay) + Scenes + Transitions + Outputs (stream) + UI (Studio Mode)
       if (msg.d.authentication) {
         if (!$("pw").value) { $("settings").classList.add("open"); $("err").textContent = "OBS wants a password. Paste it above and click Connect."; }
         const { challenge, salt } = msg.d.authentication;
@@ -463,6 +475,7 @@ function connect() {
       request("GetCurrentProgramScene");
       request("GetStudioModeEnabled");
       pollStream();
+      loadTransitions();
     } else if (msg.op === 9) {
       const cb = batchCb[msg.d.requestId]; delete batchCb[msg.d.requestId];
       cb && cb(msg.d.results || []);
@@ -480,6 +493,10 @@ function connect() {
     } else if (msg.op === 5 && msg.d.eventType === "StreamStateChanged") {
       streamState(msg.d.eventData.outputState, msg.d.eventData.outputActive);
       pollStream();
+    } else if (msg.op === 5 && msg.d.eventType === "CurrentSceneTransitionChanged") {
+      markTransition(msg.d.eventData.transitionName);
+    } else if (msg.op === 5 && (msg.d.eventType === "SceneTransitionCreated" || msg.d.eventType === "SceneTransitionRemoved" || msg.d.eventType === "SceneTransitionNameChanged")) {
+      loadTransitions();
     } else if (msg.op === 5 && msg.d.eventType === "StudioModeStateChanged") {
       setStudio(msg.d.eventData.studioModeEnabled);
     } else if (msg.op === 7) {
@@ -564,6 +581,47 @@ function setMonHidden(on, save) {
   if (store.get("monHidden") === "1") setMonHidden(true, false);
   addEventListener("resize", () => { if (store.get("monH")) setMonH(Number(store.get("monH")), false); });
 })();
+
+/* ---------- transition picker ---------- */
+const VERSUS_STINGER = "405th Versus";
+const prettyTr = n => n.replace(/^405th\s+/i, "");
+function markTransition(name) {
+  document.querySelectorAll(".trb").forEach(b => b.classList.toggle("on", b.dataset.name === name));
+}
+function loadTransitions() {
+  request("GetSceneTransitionList", {}, r => {
+    if (!r.requestStatus.result) return;
+    const list = r.responseData.transitions || [];
+    const box = $("trBtns"); box.innerHTML = "";
+    // built-ins first, then the rest (stingers, Move…); the Versus stinger is handled by the toggle
+    const order = t => /^cut$/i.test(t.transitionName) ? 0 : /^fade$/i.test(t.transitionName) ? 1 : 2;
+    for (const t of list.slice().sort((a, b) => order(a) - order(b))) {
+      if (t.transitionName === VERSUS_STINGER) continue;
+      const b = document.createElement("button");
+      b.className = "trb" + (/stinger/i.test(t.transitionKind) ? " stg" : "");
+      b.dataset.name = t.transitionName;
+      b.textContent = prettyTr(t.transitionName);
+      b.title = "Use \"" + t.transitionName + "\" for TAKE and scene switches";
+      b.onclick = () => request("SetCurrentSceneTransition", { transitionName: t.transitionName });
+      box.appendChild(b);
+    }
+    markTransition(r.responseData.currentSceneTransitionName);
+    const hasVs = list.some(t => t.transitionName === VERSUS_STINGER);
+    $("vsWrap").style.display = hasVs ? "" : "none";
+    if (hasVs) request("GetSceneSceneTransitionOverride", { sceneName: "Teams · Versus" }, o => {
+      $("vsTeam").checked = !!(o.requestStatus.result && o.responseData && o.responseData.transitionName === VERSUS_STINGER);
+    });
+  });
+}
+const teamScenes = () => L.SCENES.filter(d => d.view === "team" || d.view === "versus" || d.view === "duel").map(d => d.scene);
+$("vsTeam").onchange = () => {
+  const on = $("vsTeam").checked;
+  batch(teamScenes().map(sc => ["SetSceneSceneTransitionOverride",
+    { sceneName: sc, transitionName: on ? VERSUS_STINGER : null, transitionDuration: null }]), results => {
+    const bad = results.filter(r => !r.requestStatus.result);
+    if (bad.length) { $("vsTeam").checked = !on; $("err").textContent = "Couldn't change the Versus override: " + (bad[0].requestStatus.comment || "failed"); }
+  });
+};
 
 /* ---------- stream: Go live / End stream (two clicks to confirm) ---------- */
 let streaming = false, streamBusy = false, armTimer = null;
