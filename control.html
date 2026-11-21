@@ -182,6 +182,9 @@
   <label>Quality <select id="tileQ">
     <option value="low">low</option><option value="med" selected>medium</option><option value="high">high</option></select></label>
   <label><input type="checkbox" id="optShot" checked> Real pictures in Preview/Program</label>
+  <label>Monitor speed <select id="monFps">
+    <option value="5">5 fps</option><option value="10">10 fps</option><option value="15" selected>15 fps</option>
+    <option value="24">24 fps</option><option value="30">30 fps</option></select></label>
 </div>
 
 <h3>Layouts</h3>
@@ -225,7 +228,7 @@
 <script src="assets/sha256.js"></script>
 <script src="assets/cameras.js"></script>
 <script>
-const VERSION = "v9 · camera block";   // shown next to the title, so you can tell which copy is loaded
+const VERSION = "v10 · fast monitors";   // shown next to the title, so you can tell which copy is loaded
 const L = LAYOUTS, HK = OBSCollection.HOTKEYS;
 document.getElementById("ver").textContent = VERSION;
 document.getElementById("ver").title = "Loaded from " + location.href;
@@ -380,6 +383,7 @@ function tally() {
 }
 function markLive(scene) {
   liveScene = pgmScene = scene;
+  if (typeof monitorGrab === "function") setTimeout(() => monitorGrab("pgm"), 0);
   setTimeout(tally);
   for (const b of buttons) b.classList.toggle("live", b.dataset.scene === scene);
   $("pgmName").textContent = scene || "—";
@@ -387,6 +391,7 @@ function markLive(scene) {
 }
 function markPvw(scene) {
   pvwScene = studio ? scene : "";
+  if (typeof monitorGrab === "function") setTimeout(() => monitorGrab("pvw"), 0);
   if (!pvwScene) $("pvwShot").classList.remove("on");
   setTimeout(tally);
   for (const b of buttons) b.classList.toggle("pvw", !!pvwScene && b.dataset.scene === pvwScene);
@@ -640,12 +645,45 @@ function snap(sourceName, width, quality, done) {
   });
   return true;
 }
-function monitorShot(imgId, scene) {
-  return snap(scene, 480, 60, data => {
-    if (data && $("optShot").checked) { $(imgId).src = data; $(imgId).classList.add("on"); }
-    else if (!data) $(imgId).classList.remove("on");
+/* Preview / Program monitors: their own fast lane (not shared with the camera tiles).
+   Up to 2 snapshots in flight per monitor, newest frame wins, instant refresh when the scene changes. */
+$("monFps").value = store.get("monFps") || "15";
+const mons = {
+  pgm: { img: "pgmShot", scene: () => pgmScene, seq: 0, shown: 0, inflight: 0, url: null },
+  pvw: { img: "pvwShot", scene: () => (studio ? pvwScene : ""), seq: 0, shown: 0, inflight: 0, url: null },
+};
+function dataToBlobUrl(data) {
+  const bin = atob(data.slice(data.indexOf(",") + 1)), u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  return URL.createObjectURL(new Blob([u8], { type: "image/jpeg" }));
+}
+function monitorGrab(key) {
+  const m = mons[key], scene = m.scene();
+  if (!ready || !$("optShot").checked || !scene || m.inflight >= 2 || document.hidden) return;
+  if ((failCount[scene] || 0) > 4) return;
+  const my = ++m.seq; m.inflight++;
+  const guard = setTimeout(() => m.inflight = Math.max(0, m.inflight - 1), 3000);
+  request("GetSourceScreenshot", { sourceName: scene, imageFormat: "jpg", imageWidth: 640, imageCompressionQuality: 60 }, r => {
+    clearTimeout(guard); m.inflight = Math.max(0, m.inflight - 1);
+    const ok = r.requestStatus.result && r.responseData && r.responseData.imageData;
+    failCount[scene] = ok ? 0 : (failCount[scene] || 0) + 1;
+    if (!ok) { if (failCount[scene] > 4) $(m.img).classList.remove("on"); return; }
+    if (my < m.shown || scene !== m.scene()) return;       // an older frame arrived late, or the scene changed: drop it
+    m.shown = my;
+    const url = dataToBlobUrl(r.responseData.imageData);
+    $(m.img).src = url; $(m.img).classList.toggle("on", $("optShot").checked);
+    if (m.url) URL.revokeObjectURL(m.url);
+    m.url = url;
   });
 }
+let monTimer = null;
+function startMonitors() {
+  clearInterval(monTimer);
+  const every = 1000 / (Number($("monFps").value) || 15);
+  monTimer = setInterval(() => { monitorGrab("pgm"); monitorGrab("pvw"); }, every);
+}
+$("monFps").onchange = () => { store.set("monFps", $("monFps").value); startMonitors(); };
+startMonitors();
 // turn a data: URL into a short blob: URL (cheaper for 10 tiles to share)
 let gridUrl = null;
 function showGrid(data) {
@@ -682,8 +720,6 @@ setInterval(() => {
   const now = performance.now();
   const jobs = [];
   if (tileMode === "obs") jobs.push(["tiles", 1000 / (Number($("tileFps").value) || 5), tileShot]);
-  if ($("optShot").checked && pgmScene) jobs.push(["pgm", 330, () => monitorShot("pgmShot", pgmScene)]);
-  if ($("optShot").checked && studio && pvwScene) jobs.push(["pvw", 330, () => monitorShot("pvwShot", pvwScene)]);
   // run the most overdue job
   jobs.sort((a, b) => (due[a[0]] - now) - (due[b[0]] - now));
   for (const [k, every, fn] of jobs) {

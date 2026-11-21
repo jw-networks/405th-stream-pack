@@ -91,6 +91,11 @@ Untick **Preview first** to go back to buttons and hotkeys cutting straight to l
 The status bar, Preview/Program monitors and TAKE stay at the top while you scroll. **Drag the small bar under TAKE**
 up or down to resize the monitors, or **double-click** it to hide or show them. The dock remembers your size.
 
+**Monitor speed** (under the camera tiles) sets how often the Preview/Program monitors refresh: 15 fps by default, up to 30.
+They run separately from the camera tiles and refresh instantly when you load Preview or TAKE. On the OBS PC this is
+near real-time. Through a remote tunnel, expect a short delay and use 10–15 fps. OBS's own Preview/Program panes
+are always exactly real-time.
+
 ### Go live / End stream (in the dock)
 The bar at the top of the Director starts and stops your stream (using the stream settings already in OBS).
 - **Two clicks to confirm:** the first click arms it (the button turns amber and reads "Click to GO LIVE"), and the second click does it.
