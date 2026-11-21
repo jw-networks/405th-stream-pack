@@ -41,9 +41,13 @@
     <label for="tr">Transition between layouts</label>
     <select id="tr" style="padding:10px;font-size:16px;background:#0f0f0f;color:#fff;border:1px solid #333">
       <option value="move">Move: cameras slide and zoom between layouts (needs the free Move Transition plugin)</option>
+      <option value="stinger-hex">405th Hex Sweep stinger</option>
+      <option value="stinger-blade">405th Blade stinger (quick)</option>
       <option value="fade" selected>Fade (built in)</option>
       <option value="cut">Cut (built in)</option>
     </select>
+    <label class="check"><input type="checkbox" id="vsOverride" checked>
+      <span>Play the <b>405th Versus</b> stinger whenever you switch to Team A, Team B, Versus or a Duel. All three stingers are added to OBS either way.</span></label>
     <div class="note">Move plugin: <a href="https://obsproject.com/forum/resources/move.913/" target="_blank">obsproject.com/forum/resources/move.913</a>. Install it before importing if you pick Move.</div>
     <label class="check"><input type="checkbox" id="audioAll" checked>
       <span><b>Everyone's audio always on.</b> All 10 cameras stay live in the mix, even when they're not on screen. Each camera still gets its own volume slider.</span></label>
@@ -93,6 +97,7 @@
       root: document.getElementById("root").value.trim(),
       transition: document.getElementById("tr").value,
       audioAll: document.getElementById("audioAll").checked,
+      versusOverride: document.getElementById("vsOverride").checked,
     });
     const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" });
     const a = document.createElement("a");

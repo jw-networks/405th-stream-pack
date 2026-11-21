@@ -31,6 +31,13 @@
   /* TAKE (Studio Mode: push Preview to Program) = the "Cut" quick transition */
   const TAKE_KEY = { key: "OBS_KEY_NUMPLUS" };
 
+  /* 405th stingers (stingers/*.webm). point = Transition Point in ms (the frame where the screen is fully covered). */
+  const STINGERS = [
+    { key: "stinger-hex",    name: "405th Hex Sweep", file: "405th-hex.webm",    point: 620 },
+    { key: "stinger-blade",  name: "405th Blade",     file: "405th-blade.webm",  point: 380 },
+    { key: "stinger-versus", name: "405th Versus",    file: "405th-versus.webm", point: 620 },
+  ];
+
   const pretty = k => (k.control ? "Ctrl + " : "") + (k.alt ? "Alt + " : "") + "Numpad " + ({
     OBS_KEY_NUMPERIOD: ".", OBS_KEY_NUMSLASH: "/", OBS_KEY_NUMASTERISK: "*",
     OBS_KEY_NUMMINUS: "−", OBS_KEY_NUMPLUS: "+" }[k.key] || k.key.replace("OBS_KEY_NUM", ""));
@@ -163,10 +170,23 @@
     const allScenes = [...order, ...[...layoutScenes, ...extraScenes].filter(x => !order.includes(x)), allSeats];
     sources.push(...allScenes);
 
-    /* transitions: Move (plugin) slides the shared cameras between layouts; Fade / Cut are built in */
+    /* transitions: Move (plugin) slides the shared cameras between layouts; Fade / Cut are built in;
+       the three 405th stingers are always added so they show up in OBS's transition list */
     const tr = opts.transition || "fade";
-    const transitions = tr === "move" ? [{ name: "Move", id: "move_transition", settings: {} }] : [];
-    const current = tr === "move" ? "Move" : tr === "cut" ? "Cut" : "Fade";
+    const transitions = [];
+    if (tr === "move") transitions.push({ name: "Move", id: "move_transition", settings: {} });
+    for (const st of STINGERS) transitions.push({ name: st.name, id: "obs_stinger_transition", settings: {
+      path: file("stingers/" + st.file), tp_type: 0, transition_point: st.point,
+      audio_monitoring: 0, audio_fade_style: 0, track_matte_enabled: false, hw_decode: true } });
+    const stingerPick = STINGERS.find(st => st.key === tr);
+    const current = tr === "move" ? "Move" : tr === "cut" ? "Cut" : stingerPick ? stingerPick.name : "Fade";
+    const curDur = stingerPick ? 300 : tr === "cut" ? 300 : 600;
+    /* optional: the Versus stinger always plays when switching TO a team / versus / duel scene */
+    if (opts.versusOverride) for (const sc of layoutScenes) {
+      const def = L.sceneToView(sc.name);
+      if (def && (def.view === "team" || def.view === "versus" || def.view === "duel"))
+        sc.private_settings = Object.assign({}, sc.private_settings, { transition: "405th Versus", transition_duration: 300 });
+    }
 
     return {
       current_scene: "Grid",
@@ -177,14 +197,14 @@
       groups: [],
       // Quick transitions: in Studio Mode their hotkeys push Preview -> Program. TAKE uses your chosen transition.
       quick_transitions: [
-        { name: current, duration: tr === "cut" ? 300 : 600, hotkeys: [TAKE_KEY], id: 1, fade_to_black: false },
+        { name: current, duration: curDur, hotkeys: [TAKE_KEY], id: 1, fade_to_black: false },
         { name: "Cut", duration: 300, hotkeys: [], id: 2, fade_to_black: false },
         { name: "Fade", duration: 300, hotkeys: [], id: 3, fade_to_black: true }
       ],
       transitions,
       saved_projectors: [],
       current_transition: current,
-      transition_duration: tr === "cut" ? 300 : 600,
+      transition_duration: curDur,
       preview_locked: false,
       scaling_enabled: false,
       scaling_level: 0,
@@ -194,6 +214,6 @@
     };
   }
 
-  root.OBSCollection = { build, HOTKEYS, pretty, TAKE_KEY };
+  root.OBSCollection = { build, HOTKEYS, pretty, TAKE_KEY, STINGERS };
   if (typeof module !== "undefined") module.exports = root.OBSCollection;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -22,6 +22,7 @@ Overlays, camera layouts, hotkeys and a director panel for a 2-host / 8-player s
 ├── roster.html      ← full-screen lineup board
 ├── scene.html       ← Starting Soon / Be Right Back / Ending screens
 ├── nameplate.html   ← one seat's nameplate, for use anywhere
+├── stingers/        ← 405th stinger transitions (transparent WebM) + tools/stinger.html (their renderer)
 ├── presets/         ← ready-to-use versions of the above with options filled in
 ├── previews/        ← pictures of every layout
 └── assets/          ← theme, logos, font, scripts, layouts.js (all positions)
@@ -164,6 +165,24 @@ Change any key in **OBS → Settings → Hotkeys** (search for the scene name). 
 - **Transitions:** with **Move**, the same camera slides from its old spot to its new one (for example a player zooming
   from the Grid into a Spotlight). With Fade or Cut, layouts change in place.
 - **Renaming scenes:** rename them in `assets/layouts.js` first, then re-run setup. The dock and hotkeys use these names.
+
+### Stinger transitions
+Three branded stingers live in `stingers/` (transparent 1080p60 WebM):
+
+| Stinger | Length | Transition point | Use |
+|---|---|---|---|
+| **405th Hex Sweep** | 1.4 s | 620 ms | main transition: honeycomb sweep + emblem |
+| **405th Blade** | 0.97 s | 380 ms | quick cut: angled panels slam together |
+| **405th Versus** | 1.5 s | 620 ms | team colors collide with the VS badge |
+
+- **With setup.html:** pick *Hex Sweep* or *Blade* as the transition. TAKE and Numpad + use it, and all three are added to OBS's transition list.
+  Tick *Play the Versus stinger…* and OBS plays Versus whenever you switch **to** Team A, Team B, Versus or a Duel
+  (a per-scene *Transition Override*, which you can change by right-clicking a scene).
+- **By hand in OBS:** Scene Transitions **+** → **Stinger** → Video File = `stingers/405th-hex.webm`,
+  Transition Point Type = Time (ms), Transition Point = the value from the table above.
+- **Preview / tweak:** open `tools/stinger.html?style=hex&play` (or `blade`, `versus`) in a browser to watch one loop.
+  The Versus video is rendered in the team colors from `config.js`. Changing colors or timing means re-rendering
+  the videos (the renderer is `tools/stinger.html`, encoded to VP9 WebM with alpha).
 
 ### OBS Multiview
 **View → Multiview (Windowed)** shows Preview, Program and your scenes. Click a scene to load it into Preview,

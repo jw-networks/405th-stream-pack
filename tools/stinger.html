@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<!-- STINGER RENDERER — draws the 405th stinger transitions frame by frame.
+     Preview in a browser:  tools/stinger.html?style=hex&play     (style = hex | blade | versus)
+     The finished videos live in /stingers (transparent WebM, ready for OBS's Stinger transition).
+     To re-render after changing colors/timing, see README → Stinger transitions. -->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; background: transparent; overflow: hidden; }
+  body.preview { background: repeating-conic-gradient(#444 0 25%, #555 0 50%) 0 0 / 40px 40px; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<script src="../config.js"></script>
+<script src="../config.local.js" onerror="void 0"></script>
+<script>
+const W = 1920, H = 1080;
+const C = window.PACK_CONFIG || {};
+const TEAMS = C.teams || { a: { color: "#5ccbe9", name: "Team A" }, b: { color: "#ff6a4d", name: "Team B" } };
+const COL = { cyan: "#5ccbe9", teal: "#17706d", dark: "#151515", dark2: "#1b1a1b", white: "#ffffff" };
+const P = new URLSearchParams(location.search);
+const STYLE = P.get("style") || "hex";
+const cv = document.getElementById("c"), g = cv.getContext("2d");
+
+/* timing for each stinger (seconds). "cover" = the moment the screen is fully covered:
+   that's the Transition Point to set in OBS. */
+const STINGERS = {
+  hex:    { duration: 1.40, cover: 0.62 },
+  blade:  { duration: 0.95, cover: 0.38 },
+  versus: { duration: 1.50, cover: 0.62 },
+};
+window.STINGERS = STINGERS;
+
+const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+const lin = (t, a, b) => clamp((t - a) / (b - a));
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+const easeIn = t => t * t * t;
+const easeInOut = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+const easeOutBack = t => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
+function mix(a, b, t) {
+  const pa = a.match(/\w\w/g).map(h => parseInt(h, 16)), pb = b.match(/\w\w/g).map(h => parseInt(h, 16));
+  return "rgb(" + pa.map((v, i) => Math.round(v + (pb[i] - v) * t)).join(",") + ")";
+}
+
+let EMBLEM = null;
+const img = new Image();
+img.onload = () => { EMBLEM = img; window.READY = true; if (P.has("play")) play(); else renderAt(+P.get("t") || STINGERS[STYLE].cover); };
+img.onerror = () => { window.READY = true; };
+img.src = "../assets/emblem.png";
+
+function hexPath(cx, cy, r) {
+  g.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = Math.PI / 180 * (60 * i - 90);
+    const x = cx + r * Math.cos(a), y = cy + r * Math.sin(a);
+    i ? g.lineTo(x, y) : g.moveTo(x, y);
+  }
+  g.closePath();
+}
+function emblem(cx, cy, size, alpha, glow) {
+  if (!EMBLEM || alpha <= 0) return;
+  g.save();
+  g.globalAlpha = alpha;
+  if (glow) { g.shadowColor = COL.cyan; g.shadowBlur = glow; }
+  const w = size, h = size * EMBLEM.height / EMBLEM.width;
+  g.drawImage(EMBLEM, cx - w / 2, cy - h / 2, w, h);
+  g.restore();
+}
+function hexTexture(alpha) {          // faint honeycomb lines over a filled area (call with a clip set)
+  g.save(); g.globalAlpha = alpha; g.strokeStyle = "#ffffff"; g.lineWidth = 2;
+  const r = 46, dx = Math.sqrt(3) * r, dy = 1.5 * r;
+  for (let row = -1, y = 0; y < H + r * 2; row++, y = row * dy)
+    for (let x = (row % 2 ? dx / 2 : 0) - dx; x < W + dx; x += dx) { hexPath(x, y, r); g.stroke(); }
+  g.restore();
+}
+
+/* ---------------- 1. HEX SWEEP ---------------- */
+function drawHex(t) {
+  const R = 64, dx = Math.sqrt(3) * R, dy = 1.5 * R;
+  const spread = 0.36, grow = 0.24;           // diagonal wave length, per-hex grow time
+  const outStart = 0.84;                      // when hexes start leaving
+  for (let row = -1, y = -R; y < H + R * 2; row++, y = -R + row * dy) {
+    for (let x = (row % 2 ? dx / 2 : 0) - dx; x < W + dx; x += dx) {
+      const d = clamp((x / W) * 0.72 + (y / H) * 0.28) * spread;     // left→right, slight top→bottom
+      const pin = lin(t, d, d + grow);
+      const pout = lin(t, outStart + d * 0.9, outStart + d * 0.9 + 0.2);
+      const s = pin < 1 ? easeOutBack(pin) : 1 - easeIn(pout);
+      if (s <= 0.001) continue;
+      const glowT = clamp(1 - lin(t, d + grow * 0.4, d + grow * 1.6));   // fresh hexes flash cyan
+      const glowO = pout > 0 ? clamp(pout * 2) * (1 - pout) : 0;          // and again as they leave
+      g.fillStyle = mix("5ccbe9", "151515", 1 - Math.max(glowT, glowO));
+      hexPath(x, y, R * 1.06 * s); g.fill();
+      g.strokeStyle = glowT > .3 ? COL.white : COL.teal; g.lineWidth = 3;
+      hexPath(x, y, R * 0.92 * s); g.stroke();
+    }
+  }
+  // emblem pop in the middle while covered
+  const ein = lin(t, 0.46, 0.66), eout = lin(t, 0.86, 1.02);
+  if (ein > 0 && eout < 1) {
+    const sc = (ein < 1 ? easeOutBack(ein) : 1) * (1 - easeIn(eout) * 0.4);
+    const a = Math.min(1, ein * 2) * (1 - eout);
+    // ring
+    g.save(); g.globalAlpha = a * 0.9; g.strokeStyle = COL.cyan; g.lineWidth = 6;
+    hexPath(W / 2, H / 2, 230 * sc + lin(t, 0.5, 1.0) * 60); g.stroke(); g.restore();
+    emblem(W / 2, H / 2, 300 * sc, a, 30);
+  }
+}
+
+/* ---------------- 2. BLADE ---------------- */
+function blade(t, side) {
+  // side -1 = from left, +1 = from right. Angled leading edge like the nameplate tab.
+  const inP = easeOut(lin(t, 0.0, 0.36)), outP = easeIn(lin(t, 0.58, 0.95));
+  const reach = side < 0 ? (W / 2 + 140) : (W / 2 + 140);      // overlap past centre
+  const pos = inP * reach - outP * (reach + 240);
+  const slant = 260;
+  g.save();
+  g.beginPath();
+  if (side < 0) {
+    const e = pos;                    // right edge x at top
+    g.moveTo(-10, -10); g.lineTo(e, -10); g.lineTo(e - slant, H + 10); g.lineTo(-10, H + 10);
+  } else {
+    const e = W - pos;
+    g.moveTo(W + 10, -10); g.lineTo(e + slant, -10); g.lineTo(e, H + 10); g.lineTo(W + 10, H + 10);
+  }
+  g.closePath();
+  g.fillStyle = side < 0 ? COL.dark : COL.dark2; g.fill();
+  g.clip(); hexTexture(0.05);
+  g.restore();
+  // cyan edge + teal trail line
+  g.save(); g.lineCap = "butt";
+  const e = side < 0 ? pos : W - pos;
+  const top = side < 0 ? e : e + slant, bot = side < 0 ? e - slant : e;
+  g.strokeStyle = COL.cyan; g.lineWidth = 8;
+  g.beginPath(); g.moveTo(top, -10); g.lineTo(bot, H + 10); g.stroke();
+  g.strokeStyle = COL.teal; g.lineWidth = 4;
+  const off = side < 0 ? -26 : 26;
+  g.beginPath(); g.moveTo(top + off, -10); g.lineTo(bot + off, H + 10); g.stroke();
+  g.restore();
+}
+function drawBlade(t) {
+  // speed streaks
+  const sp = lin(t, 0.0, 0.4), sp2 = lin(t, 0.55, 0.9);
+  g.save(); g.strokeStyle = COL.cyan; g.lineWidth = 3;
+  for (let i = 0; i < 9; i++) {
+    const y = 120 + i * 105, a = Math.sin((sp + sp2) * Math.PI) * 0.5;
+    if (a <= 0) continue;
+    g.globalAlpha = a * (0.4 + (i % 3) * 0.2);
+    const len = 300 + (i * 97) % 300, x = ((i * 211) % W) * (sp + sp2);
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + len, y); g.stroke();
+  }
+  g.restore();
+  blade(t, -1); blade(t, 1);
+  // seam flash + emblem while closed
+  const f = lin(t, 0.33, 0.44) * (1 - lin(t, 0.44, 0.6));
+  if (f > 0) { g.save(); g.globalAlpha = f; g.strokeStyle = "#fff"; g.lineWidth = 10;
+    g.beginPath(); g.moveTo(W / 2 + 130 + 10, -10); g.lineTo(W / 2 - 130 + 10, H + 10); g.stroke(); g.restore(); }
+  const ein = lin(t, 0.32, 0.44), eout = lin(t, 0.56, 0.66);
+  emblem(W / 2, H / 2, 220 * (ein < 1 ? easeOutBack(ein) : 1), ein * (1 - eout), 24);
+}
+
+/* ---------------- 3. VERSUS ---------------- */
+function drawVersus(t) {
+  const ca = (TEAMS.a && TEAMS.a.color) || "#5ccbe9", cb = (TEAMS.b && TEAMS.b.color) || "#ff6a4d";
+  const inP = easeOut(lin(t, 0.0, 0.42)), outP = easeIn(lin(t, 0.92, 1.42));
+  const slant = 300, over = 40;
+  for (const side of [-1, 1]) {
+    const reach = W / 2 + slant / 2 + over;
+    const pos = inP * reach - outP * (reach + slant + 60);
+    g.save(); g.beginPath();
+    if (side < 0) { g.moveTo(-10, -10); g.lineTo(pos, -10); g.lineTo(pos - slant, H + 10); g.lineTo(-10, H + 10); }
+    else { const e = W - pos; g.moveTo(W + 10, -10); g.lineTo(e + slant, -10); g.lineTo(e, H + 10); g.lineTo(W + 10, H + 10); }
+    g.closePath();
+    const grad = g.createLinearGradient(side < 0 ? 0 : W, 0, W / 2, 0);
+    const c = side < 0 ? ca : cb;
+    grad.addColorStop(0, COL.dark); grad.addColorStop(0.55, COL.dark); grad.addColorStop(1, c);
+    g.fillStyle = grad; g.fill();
+    g.clip(); hexTexture(0.06);
+    g.restore();
+    // bright edge in team colour
+    const e = side < 0 ? pos : W - pos, top = side < 0 ? e : e + slant, bot = side < 0 ? e - slant : e;
+    g.save(); g.strokeStyle = c; g.lineWidth = 10; g.shadowColor = c; g.shadowBlur = 25;
+    g.beginPath(); g.moveTo(top, -10); g.lineTo(bot, H + 10); g.stroke(); g.restore();
+  }
+  // impact: a hot white streak along the seam
+  const f = lin(t, 0.38, 0.46) * (1 - lin(t, 0.46, 0.8));
+  if (f > 0) { g.save(); g.globalAlpha = f; g.strokeStyle = "#fff"; g.lineWidth = 4 + 18 * f;
+    g.shadowColor = "#fff"; g.shadowBlur = 40 * f;
+    g.beginPath(); g.moveTo(W / 2 + slant / 2, -10); g.lineTo(W / 2 - slant / 2, H + 10); g.stroke(); g.restore(); }
+  // VS badge
+  const bin = lin(t, 0.42, 0.62), bout = lin(t, 0.9, 1.05);
+  if (bin > 0 && bout < 1) {
+    const s = (bin < 1 ? easeOutBack(bin) : 1) * (1 + bout * 0.3), a = 1 - bout;
+    g.save(); g.globalAlpha = a; g.translate(W / 2, H / 2); g.scale(s, s);
+    // split-colour hex rim
+    g.save(); hexPath(0, 0, 190); g.clip();
+    g.fillStyle = ca; g.fillRect(-200, -200, 200, 400); g.fillStyle = cb; g.fillRect(0, -200, 200, 400); g.restore();
+    g.fillStyle = COL.dark; hexPath(0, 0, 168); g.fill();
+    g.fillStyle = "#fff"; g.font = "italic 800 150px 'Arial Narrow', 'Roboto Condensed', Arial, sans-serif";
+    g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("VS", 0, 8);
+    g.restore();
+  }
+}
+
+const DRAW = { hex: drawHex, blade: drawBlade, versus: drawVersus };
+window.renderAt = function (t) {
+  g.clearRect(0, 0, W, H);
+  DRAW[STYLE](t);
+};
+function play() {
+  document.body.classList.add("preview");
+  const d = STINGERS[STYLE].duration;
+  const t0 = performance.now();
+  (function loop(now) {
+    const t = ((now - t0) / 1000) % (d + 0.6);
+    renderAt(Math.min(t, d));
+    requestAnimationFrame(loop);
+  })(t0);
+}
+</script>
+</body>
+</html>
