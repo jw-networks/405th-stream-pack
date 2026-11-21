@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<!-- STAGE OVERLAY — cameras + frames + nameplates for every layout, in one source.
+     OBS Browser Source 1920 x 1080. Camera links (VDO.Ninja) are set in config.js.
+     Inside OBS it watches the live scene name (Grid, Hosts, Spotlight · P3, Interview · P3 …)
+     and animates frames + nameplates to match. Set the source's
+     Page permissions to "Read access to user information" (the setup file does this for you).
+     URL options (for testing or manual use):
+       ?view=grid | hosts | spotlight | interview (&seat=p3) | team (&team=a|b) | versus | duel (&n=1-4) | multi (&seats=p1,p5,host1)
+       ?guide  ?slate  ?bar=0  ?demo -->
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="assets/theme.css">
+<link rel="stylesheet" href="assets/plate.css">
+<style>
+  body { width: 1920px; height: 1080px; position: relative; }
+  #bg { position: absolute; inset: 0; }
+
+  .cam { position: absolute; transition: opacity .35s ease; }
+  .cam.off { opacity: 0; }
+  .cam .frame { position: absolute; inset: 0; border: 2px solid rgba(92,203,233,.28); transition: opacity .3s; }
+  .cam .frame::before, .cam .frame::after {
+    content: ""; position: absolute; width: 34px; height: 34px; border: 0 solid var(--cyan); top: -2px;
+  }
+  .cam .frame::before { left: -2px;  border-top-width: 4px; border-left-width: 4px; }
+  .cam .frame::after  { right: -2px; border-top-width: 4px; border-right-width: 4px; }
+  .cam.full .frame { opacity: 0; }
+  .cam .plate { position: absolute; left: 0; bottom: 0; transition: left .5s var(--ease), bottom .5s var(--ease), font-size .6s var(--ease); }
+  .cam.full .plate { left: 56px; bottom: 56px; }
+
+  .vid { position: absolute; inset: 0; overflow: hidden; background: #000; }
+  .vid iframe { position: absolute; left: 50%; top: 50%; border: 0; transform-origin: 50% 50%; background: #000; }
+  .cam.nocam .vid { display: none; }
+  .slate { position: absolute; inset: 0; display: grid; place-items: center; align-content: center; gap: 10px; opacity: 0; transition: opacity .5s; }
+  .slate img { width: 22%; opacity: .55; }
+  .slate .label { font-size: 18px; color: var(--muted); }
+  body.useslate .cam.empty .slate, .cam.nocam .slate { opacity: 1; }
+
+  .guide { position: absolute; inset: 0; display: none; place-items: center; align-content: center; background: rgba(23,112,109,.55); text-align: center; }
+  .guide b { font-size: 34px; font-weight: 800; text-transform: uppercase; }
+  .guide span { font-size: 20px; color: #d8f4fb; letter-spacing: .05em; }
+  body.showguide .guide { display: grid; }
+
+  .fade { transition: opacity .45s ease, transform .6s var(--ease); }
+  .fade.hide { opacity: 0; }
+
+  #side { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; text-align: center; }
+  #side img { width: 64%; }
+  .live { display: flex; align-items: center; gap: 12px; font-size: 22px; }
+  .live i { width: 12px; height: 12px; border-radius: 50%; background: #ff3d3d; box-shadow: 0 0 12px #ff3d3d; animation: pulse 1.6s infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+
+  #title { position: absolute; left: 0; right: 0; top: 92px; display: flex; justify-content: center; align-items: center; gap: 22px; font-size: 40px; }
+
+
+  .thead { position: absolute; display: flex; align-items: center; gap: 18px; height: 64px; }
+  .thead .bar2 { width: 10px; align-self: stretch; background: var(--tc); transform: skewX(-14deg); }
+  .thead b { font-size: 54px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; line-height: 1; }
+  .thead .rule { flex: 1; height: 3px; background: linear-gradient(90deg, var(--tc), transparent); }
+  .thead.r { flex-direction: row-reverse; text-align: right; }
+  .thead.r .rule { background: linear-gradient(270deg, var(--tc), transparent); }
+  #vs { position: absolute; width: 132px; height: 152px; margin: -76px 0 0 -66px; display: grid; place-items: center;
+        background: var(--panel); clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+        transform: scale(.6); }
+  #vs::before { content: ""; position: absolute; inset: 0; background: linear-gradient(135deg, var(--ta) 0 50%, var(--tb) 50% 100%);
+        clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%, 0 25%, 6% 28.5%, 6% 71.5%, 50% 93%, 94% 71.5%, 94% 28.5%, 50% 7%, 6% 28.5%, 0 25%); }
+  #vs b { font-size: 60px; font-weight: 800; font-style: italic; letter-spacing: .02em; }
+  #vs:not(.hide) { transform: scale(1); }
+  #bar { transition: opacity .45s ease, transform .6s var(--ease), border-color .5s ease; }
+  #side, #title, #corner, #bar, .thead, #vs { z-index: 5; }
+  body.schematic .slate { background-color: #232a2d; }
+  body.schematic .slate img { display: none; }
+  body.schematic .slate .label { font-size: 64px; font-weight: 800; color: #cfe9f1; letter-spacing: .04em; }
+  body.schematic .cam.full .slate .label { font-size: 160px; }
+  #other { position: absolute; inset: 0; z-index: 20; display: none; place-items: center; align-content: center; gap: 20px; background: #151515; }
+  #other b { font-size: 120px; font-weight: 800; text-transform: uppercase; }
+  #other span { font-size: 48px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; }
+  body.other #other { display: grid; }
+  #corner { position: absolute; right: 48px; top: 40px; width: 120px; filter: drop-shadow(0 6px 16px rgba(0,0,0,.6)); }
+
+  #bar { position: absolute; left: 0; right: 0; bottom: 0; height: 96px; border-top: 3px solid var(--cyan);
+         display: flex; align-items: center; gap: 28px; padding: 0 40px; }
+  #bar.hide { transform: translateY(100%); }
+  #bar img { height: 66px; }
+  #bar .big { font-size: 46px; letter-spacing: .06em; }
+  #bar .slash { width: 3px; height: 54px; background: var(--cyan); transform: skewX(-20deg); opacity: .7; }
+  #bar .label { font-size: 30px; }
+  #bar .spacer { flex: 1; }
+  #bar .url { font-size: 30px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+  body.nobar #bar { display: none; }
+</style>
+</head>
+<body>
+<svg id="bg" width="1920" height="1080">
+  <defs>
+    <pattern id="hp" width="80" height="138" patternUnits="userSpaceOnUse"><image href="assets/hex.svg" width="80" height="138"/></pattern>
+    <radialGradient id="glow" cx="50%" cy="35%" r="70%">
+      <stop offset="0" stop-color="#5ccbe9" stop-opacity=".07"/><stop offset="1" stop-color="#000" stop-opacity=".35"/>
+    </radialGradient>
+  </defs>
+  <mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="1920" height="1080">
+    <rect width="1920" height="1080" fill="#fff"/><g id="holes" fill="#000"></g>
+  </mask>
+  <g mask="url(#cut)">
+    <rect width="1920" height="1080" fill="#1b1a1b"/>
+    <rect width="1920" height="1080" fill="url(#hp)"/>
+    <rect width="1920" height="1080" fill="url(#glow)"/>
+  </g>
+</svg>
+<div id="side" class="fade"><img src="assets/logo.png" alt=""><div class="live label"><i></i><span id="sub"></span></div></div>
+<div id="title" class="fade hide"><span class="kink"></span><span class="label" id="titleText"></span><span class="kink" style="transform:scaleX(-1)"></span></div>
+<div id="headA" class="thead fade hide"><span class="bar2"></span><b></b><span class="rule"></span></div>
+<div id="headB" class="thead r fade hide"><span class="bar2"></span><b></b><span class="rule"></span></div>
+<div id="vs" class="fade hide"><b>VS</b></div>
+<div id="other"><span>Full-screen scene</span><b id="otherName"></b></div>
+<img id="corner" class="fade hide" src="assets/emblem.png" alt="">
+<div id="bar" class="hexpanel fade">
+  <img src="assets/emblem.png" alt="">
+  <div class="big" id="evt"></div>
+  <div class="slash"></div>
+  <div class="label" id="barLabel">Tonight's squad</div>
+  <div class="spacer"></div>
+  <div class="url" id="url"></div>
+</div>
+
+<script src="config.js"></script>
+<script src="config.local.js" onerror="void 0"></script>
+<script src="assets/layouts.js"></script>
+<script src="assets/names.js"></script>
+<script src="assets/plate.js"></script>
+<script src="assets/sha256.js"></script>
+<script src="assets/cameras.js"></script>
+<script>
+const L = LAYOUTS, C = Names.config, P = new URLSearchParams(location.search);
+const DUR = Number(P.get("ms")) || C.transitionMs || 600;
+const $ = id => document.getElementById(id);
+const SCHEMATIC = P.has("schematic");   // used by the Director dock's Preview/Program monitors: no cameras, just layout + names
+if (SCHEMATIC) document.body.classList.add("schematic");
+if (P.has("guide")) document.body.classList.add("showguide");
+if (P.has("slate")) document.body.classList.add("useslate");
+if (P.get("bar") === "0") document.body.classList.add("nobar");
+$("evt").textContent = C.eventTitle || "";
+$("sub").textContent = C.eventSubtitle || "Live";
+$("url").textContent = C.website || "";
+Object.assign($("side").style, { left: L.SIDE.x + "px", top: L.SIDE.y + "px", width: L.SIDE.w + "px", height: L.SIDE.h + "px" });
+
+/* ---------- seats ---------- */
+const cams = {};
+for (const seat of L.SEATS) {
+  const el = document.createElement("div");
+  el.className = "cam empty off";
+  el.innerHTML = `<div class="vid"></div><div class="slate hexbg"><img src="assets/emblem.png" alt=""><div class="label">Standby</div></div>
+    <div class="frame"></div><div class="guide"><b>${L.seatName(seat)}</b><span></span></div>`;
+  const plate = makePlate(seat, {});
+  plate.addEventListener("seatchange", e => el.classList.toggle("empty", !e.detail.name));
+  el.appendChild(plate);
+  document.body.insertBefore(el, $("side"));
+  cams[seat] = { el, plate, cur: null, from: null, to: null, base: { w: 640, h: 360 }, iframe: null };
+  const url = SCHEMATIC ? "" : cameraUrl(seat, "overlay");
+  if (SCHEMATIC) {
+    const lab = el.querySelector(".slate .label");
+    lab.textContent = L.seatName(seat);
+    Names.onChange(() => { lab.textContent = Names.get(seat) ? L.seatName(seat) : L.seatName(seat) + " · empty"; });
+  }
+  if (url) {
+    const f = document.createElement("iframe");
+    f.src = url;
+    f.allow = "autoplay; fullscreen; camera; microphone; display-capture";
+    f.width = 640; f.height = 360;
+    el.querySelector(".vid").appendChild(f);
+    cams[seat].iframe = f;
+  } else el.classList.add("nocam");
+}
+
+/* ---------- animation ---------- */
+const ease = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;   // cubic ease in-out
+const lerp = (a, b, t) => a + (b - a) * t;
+const collapse = r => ({ x: r.x + r.w/2, y: r.y + r.h/2, w: 0, h: 0 });
+let t0 = 0, animating = false;
+
+function plateSize(w) { return Math.max(10, Math.min(24, w / 50)); }
+
+function draw(t) {
+  const holes = [];
+  for (const seat of L.SEATS) {
+    const c = cams[seat];
+    if (!c.to) continue;
+    const r = { x: lerp(c.from.x, c.to.x, t), y: lerp(c.from.y, c.to.y, t), w: lerp(c.from.w, c.to.w, t), h: lerp(c.from.h, c.to.h, t) };
+    c.cur = r;
+    Object.assign(c.el.style, { left: r.x + "px", top: r.y + "px", width: r.w + "px", height: r.h + "px" });
+    if (c.iframe) {   // the video is laid out at its final size and scaled while it moves (smooth, no re-layout)
+      const sc = Math.max(r.w / c.base.w, r.h / c.base.h);
+      c.iframe.style.transform = `translate(-50%, -50%) scale(${sc})`;
+    }
+    // cameras are drawn inside the overlay now, so no see-through holes are needed
+  }
+  $("holes").innerHTML = holes.join("");
+}
+
+function frame(now) {
+  const t = Math.min(1, (now - t0) / DUR);
+  draw(ease(t));
+  if (t < 1) requestAnimationFrame(frame); else animating = false;
+}
+
+let currentKey = "", currentView = null, currentArg = null;
+const teamName = t => Names.get("team" + t) || L.TEAMS[t].name;
+document.documentElement.style.setProperty("--ta", L.TEAMS.a.color);
+document.documentElement.style.setProperty("--tb", L.TEAMS.b.color);
+
+function refreshText(v) {
+  v = v || L.view(currentView, currentArg);
+  $("barLabel").textContent = v.team ? teamName(v.team) : (v.label || "");
+  document.querySelector("#bar .slash").style.visibility = $("barLabel").textContent ? "" : "hidden";
+  $("bar").style.borderTopColor = v.team ? L.TEAMS[v.team].color : "";
+  $("barLabel").style.color = v.team ? L.TEAMS[v.team].color : "";
+  const hs = v.headers || [];
+  [["headA", hs[0]], ["headB", hs[1]]].forEach(([id, h]) => {
+    const el = $(id);
+    el.classList.toggle("hide", !h);
+    if (!h) return;
+    Object.assign(el.style, { left: h.x + "px", top: h.y + "px", width: h.w + "px" });
+    el.style.setProperty("--tc", L.TEAMS[h.team].color);
+    el.querySelector("b").textContent = teamName(h.team);
+  });
+  $("vs").classList.toggle("hide", !v.vs);
+  if (v.vs) Object.assign($("vs").style, { left: v.vs.x + "px", top: v.vs.y + "px" });
+}
+
+function setView(name, arg, instant) {
+  const key = name + ":" + JSON.stringify(arg ?? null);
+  if (key === currentKey) return;
+  currentKey = key; currentView = name; currentArg = arg;
+  const v = L.view(name, arg);
+  for (const s of L.SEATS) {
+    const c = cams[s];
+    const target = v.rects[s];
+    const home = L.GRID[s];
+    const start = c.cur || (target ? collapse(target) : collapse(home));
+    c.from = { ...start };
+    c.to = target ? { ...target } : collapse(c.cur && c.cur.w > 1 ? c.cur : home);
+    c.el.classList.toggle("off", !target);
+    c.el.style.zIndex = target ? 2 : 1;
+    if (target && c.iframe) { c.base = { w: Math.round(target.w), h: Math.round(target.h) }; c.iframe.width = c.base.w; c.iframe.height = c.base.h; }
+    c.el.classList.toggle("full", !!(target && v.full));
+    const team = L.teamOf(s);
+    if (v.tint && team) c.el.style.setProperty("--cyan", L.TEAMS[team].color); else c.el.style.removeProperty("--cyan");
+    c.plate.querySelector(".name").style.fontSize = "";
+    const fs = target ? plateSize(target.w) : 10;
+    c.plate.style.fontSize = fs + "px";
+    c.plate.classList.toggle("compact", target ? target.w < 600 : true);
+    c.plate.style.setProperty("--w", target && target.w >= 600 ? "27em" : "30em");
+    if (target) c.el.querySelector(".guide span").textContent = `X ${target.x}  Y ${target.y}  ${target.w} × ${target.h}`;
+  }
+  $("side").classList.toggle("hide", !v.side);
+  $("bar").classList.toggle("hide", !v.bar);
+  $("corner").classList.toggle("hide", !v.full);
+  $("titleText").textContent = v.title || "";
+  $("title").classList.toggle("hide", !v.title);
+  refreshText(v);
+  setTimeout(() => L.SEATS.forEach(s => { const n = cams[s].plate.querySelector(".name"); const px = parseFloat(cams[s].plate.style.fontSize) * 2.2; fitText(n, px, px * .5); }), DUR);
+  if (instant) { draw(1); return; }
+  t0 = performance.now();
+  if (!animating) { animating = true; requestAnimationFrame(frame); }
+}
+window.setView = setView;
+Names.onChange(() => currentView && refreshText());
+
+/* ---------- follow OBS ---------- */
+const multiPicks = {};      // scene name -> seats, sent by the director dock
+let liveScene = "";
+function fromScene(sceneName) {
+  liveScene = sceneName;
+  const m = L.sceneToView(sceneName);
+  if (!m) return;
+  if (m.multi) setView("multi", (m.seats && m.seats.length) ? m.seats : (multiPicks[m.scene] || ["p1", "p2"]));
+  else setView(m.view, m.arg);
+}
+// The dock sends this (via obs-browser "emit_event") just before it switches to a Multi-View scene.
+function applyMulti(d) {
+  if (typeof d === "string") { try { d = JSON.parse(d); } catch (e) { return; } }
+  if (!d || !d.scene || !Array.isArray(d.seats)) return;
+  multiPicks[d.scene] = d.seats;
+  if (liveScene === d.scene) { currentKey = ""; setView("multi", d.seats); }
+}
+window.addEventListener("405th-multi", e => applyMulti(e.detail));
+
+/* Backup line: if an OBS WebSocket password is set in config.js, listen there too
+   (custom multi-view picks + scene changes). */
+(function wsLink() {
+  /* The overlay's own line to OBS. Uses the WebSocket settings from config / config.local.js.
+     - follows scene changes (backup for OBS's built-in events)
+     - RELAYS names + camera links to any Director dock, so a remote dock
+       (e.g. on GitHub Pages) shows the same names and camera tiles. */
+  const o = C.obs || {};
+  if (SCHEMATIC || (!window.obsstudio && !P.has("ws"))) return;
+  if (!o.address) return;
+  let ws, alt = false, up = false, rid = 0;
+  const state = () => ({ type: "405th-state", names: Names.snapshot(), cameras: C.cameras || {},
+                         dockCameraParams: C.dockCameraParams || "", teams: C.teams });
+  const relay = () => { if (up) ws.send(JSON.stringify({ op: 6, d: { requestType: "BroadcastCustomEvent", requestId: "s" + (++rid), requestData: { eventData: state() } } })); };
+  Names.onChange(() => relay());
+  const open = () => {
+    let host = String(o.address).trim().replace(/^wss?:\/\//i, "").replace(/\/+$/, "");
+    if (alt) host = host.replace(/^localhost/i, "127.0.0.1");
+    alt = !alt;
+    try { ws = new WebSocket("ws://" + host); } catch (e) { return setTimeout(open, 5000); }
+    ws.onmessage = ev => {
+      const m = JSON.parse(ev.data);
+      if (m.op === 0) {
+        const d = { rpcVersion: 1, eventSubscriptions: 1 | 4 };
+        if (m.d.authentication) d.authentication = sha256b64(sha256b64((o.password || "") + m.d.authentication.salt) + m.d.authentication.challenge);
+        ws.send(JSON.stringify({ op: 1, d }));
+      } else if (m.op === 2) {
+        up = true; relay();
+      } else if (m.op === 5) {
+        const e = m.d;
+        if (e.eventType === "CustomEvent" && e.eventData && e.eventData.type === "405th-multi") applyMulti(e.eventData);
+        if (e.eventType === "CustomEvent" && e.eventData && e.eventData.type === "405th-hello") relay();
+        if (e.eventType === "CurrentProgramSceneChanged") fromScene(e.eventData.sceneName);
+      }
+    };
+    ws.onclose = () => { up = false; setTimeout(open, 5000); };
+  };
+  open();
+})();
+window.fromScene = fromScene;
+
+/* Monitors in the dock are driven by messages: { scene, seats? } */
+window.addEventListener("message", e => {
+  const d = e.data || {};
+  if (d.type === "405th-names") { Names.set(d.names); return; }
+  if (d.type !== "405th-monitor") return;
+  if (d.seats) multiPicks[d.scene] = d.seats;
+  const m = L.sceneToView(d.scene);
+  if (!m) { document.body.classList.add("other"); $("otherName").textContent = d.scene || ""; return; }
+  document.body.classList.remove("other");
+  if (m.multi) { currentKey = ""; setView("multi", (m.seats && m.seats.length) ? m.seats : (multiPicks[m.scene] || ["p1", "p2"]), d.instant); }
+  else setView(m.view, m.arg, d.instant);
+});
+
+if (SCHEMATIC) {
+  setView("grid", null, true);
+} else if (P.get("view")) {
+  const v = P.get("view");
+  let arg = P.get("seat") ? Names.seatKey(P.get("seat")) : null;
+  if (v === "team") arg = P.get("team") || "a";
+  if (v === "duel") arg = Number(P.get("n") || 1) - 1;
+  if (v === "multi") arg = (P.get("seats") || "p1,p2").split(",").map(Names.seatKey);
+  setView(v, arg, true);
+} else {
+  setView("grid", null, true);
+  if (window.obsstudio) {
+    try { window.obsstudio.getCurrentScene(s => s && fromScene(s.name)); } catch (e) {}
+    window.addEventListener("obsSceneChanged", e => fromScene(e.detail.name));
+  }
+}
+Names.start();
+</script>
+</body>
+</html>

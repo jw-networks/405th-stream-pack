@@ -1,0 +1,7 @@
+# private, per-PC settings
+config.local.js
+# written live by the video switcher
+names.txt
+# OS junk
+.DS_Store
+Thumbs.db

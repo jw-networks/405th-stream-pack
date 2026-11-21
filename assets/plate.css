@@ -1,0 +1,67 @@
+/* Seat nameplate — modeled on the "NEW DONATION" lower third.
+   Everything is in em, so set font-size on .plate to scale it. */
+.plate {
+  --w: 26em;
+  font-size: 16px;
+  width: var(--w);
+  position: relative;
+  pointer-events: none;
+}
+.plate .tab {
+  display: inline-flex;
+  align-items: center;
+  gap: .9em;
+  height: 2em;
+  padding: 0 2.4em 0 1em;
+  background: var(--panel);
+  clip-path: polygon(0 0, calc(100% - 1.5em) 0, 100% 100%, 0 100%);
+  transform: translateY(100%);
+  opacity: 0;
+  transition: transform .45s var(--ease) .15s, opacity .3s ease .15s;
+}
+.plate .tab .label { font-size: 1.05em; white-space: nowrap; }
+.plate .tab .kink  { font-size: .9em; }
+
+.plate .bar {
+  display: flex;
+  align-items: stretch;
+  height: 3.6em;
+  border-top: .2em solid var(--cyan);
+  box-shadow: 0 .6em 1.6em rgba(0,0,0,.45);
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path .55s var(--ease);
+}
+.plate .mark {
+  flex: 0 0 3.6em;
+  display: grid; place-items: center;
+  border-right: .16em solid var(--cyan);
+}
+.plate .mark img { width: 74%; height: auto; display: block; }
+.plate .name {
+  flex: 1;
+  min-width: 0;
+  display: flex; align-items: center;
+  padding: 0 .55em;
+  font-size: 2.2em;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  white-space: nowrap;
+  overflow: hidden;
+  line-height: 1;
+}
+
+/* visible state */
+.plate.on .bar { clip-path: inset(0 0 0 0); }
+.plate.on .tab { transform: none; opacity: 1; }
+
+/* right-aligned variant (tab hugs the right edge) */
+.plate.right { text-align: right; }
+.plate.right .tab { clip-path: polygon(1.5em 0, 100% 0, 100% 100%, 0 100%); padding: 0 1em 0 2.4em; }
+.plate.right .bar { flex-direction: row-reverse; clip-path: inset(0 0 0 100%); }
+.plate.right.on .bar { clip-path: inset(0 0 0 0); }
+.plate.right .mark { border-right: 0; border-left: .16em solid var(--cyan); }
+.plate.right .name { justify-content: flex-end; }
+
+/* compact variant for small camera windows: no emblem block */
+.plate.compact .mark { display: none; }

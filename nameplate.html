@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<!-- Single seat nameplate.
+     OBS Browser Source, width 800, height 200.
+     URL options:  ?seat=host1 | host2 | p1 … p8
+                   &align=right   &size=16 (scale, px)   &compact   &label=Custom   &demo -->
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="assets/theme.css">
+<link rel="stylesheet" href="assets/plate.css">
+<style>
+  body { width: 100vw; height: 100vh; display: flex; align-items: flex-end; padding: 0 0 24px 24px; }
+  body.right { justify-content: flex-end; padding: 0 24px 24px 0; }
+</style>
+</head>
+<body>
+<script src="config.js"></script>
+<script src="config.local.js" onerror="void 0"></script>
+<script src="assets/names.js"></script>
+<script src="assets/plate.js"></script>
+<script>
+  const p = new URLSearchParams(location.search);
+  const seat = Names.seatKey(p.get("seat") || "host1");
+  const align = p.get("align") || "left";
+  if (align === "right") document.body.classList.add("right");
+  const plate = makePlate(seat, { align, compact: p.has("compact") });
+  if (p.get("size")) plate.style.fontSize = p.get("size") + "px";
+  if (p.get("width")) plate.style.setProperty("--w", p.get("width") + "em");
+  document.body.appendChild(plate);
+  Names.start();
+</script>
+</body>
+</html>

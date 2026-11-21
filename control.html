@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<!-- 405th CONTROL DOCK — click-to-switch layouts + Auto Director.
+     Add in OBS: Docks → Custom Browser Docks → URL: file:///C:/path/to/405th-stream-pack/control.html
+     Needs OBS WebSocket: Tools → WebSocket Server Settings → Enable (copy the password). -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>405th Control</title>
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  html, body { overflow: auto; background: var(--bg); }
+  body { padding: 10px; font-size: 14px; min-width: 240px; }
+  .top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .top img { width: 30px; }
+  .top b { flex: 1; font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+  #status { font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; padding: 3px 8px; background: #5a1d1d; cursor: pointer; }
+  #status.ok { background: var(--teal); }
+  h3 { margin: 12px 0 6px; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--cyan); }
+  h3::after { content: ""; flex: 1; height: 1px; background: rgba(92,203,233,.3); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 5px; }
+  .grid.two { grid-template-columns: 1fr 1fr; }
+  button.sw {
+    position: relative; text-align: left; padding: 7px 8px 7px 10px; min-height: 46px; min-width: 0;
+    background: var(--panel); color: #fff; border: 0; border-top: 2px solid #333; cursor: pointer;
+    font-family: var(--font); font-variation-settings: "wdth" 75;
+  }
+  button.sw:hover { background: #222; border-top-color: var(--cyan); }
+  button.sw .k { display: block; font-size: 11px; font-weight: 800; letter-spacing: .1em; color: var(--cyan); text-transform: uppercase; }
+  button.sw .n { display: block; font-size: 16px; font-weight: 800; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  button.sw .hk { position: absolute; right: 6px; top: 6px; font-size: 10px; color: #777; }
+  button.sw.empty .n { color: #555; }
+  button.sw.live { background: var(--teal); border-top-color: var(--cyan); }
+  button.sw.live .k { color: #d8f4fb; }
+  button.sw.live::after { content: "LIVE"; position: absolute; right: 6px; bottom: 6px; font-size: 10px; font-weight: 800; letter-spacing: .1em; background: #e33; padding: 1px 4px; }
+  button.sw.big .n { font-size: 20px; }
+  .auto { background: var(--panel); padding: 10px; border-top: 2px solid #333; }
+  .auto.on { border-top-color: var(--cyan); }
+  .row { display: flex; align-items: center; gap: 8px; margin: 5px 0; flex-wrap: wrap; }
+  .row label { display: flex; align-items: center; gap: 5px; color: #ccc; font-size: 13px; }
+  .row input[type=number] { width: 58px; padding: 4px; background: #0f0f0f; color: #fff; border: 1px solid #333; }
+  #autoBtn { width: 100%; padding: 10px; border: 0; background: #2b2b2b; color: #fff; cursor: pointer;
+             font: 800 16px var(--font); font-variation-settings: "wdth" 75; letter-spacing: .1em; text-transform: uppercase; }
+  .auto.on #autoBtn { background: var(--cyan); color: #0b2630; }
+  #next { font-size: 12px; color: var(--muted); margin-top: 6px; min-height: 1em; }
+  #settings { display: none; background: var(--panel); padding: 10px; margin-bottom: 8px; }
+  #settings.open { display: block; }
+  #settings input { width: 100%; padding: 6px; margin: 3px 0 8px; background: #0f0f0f; color: #fff; border: 1px solid #333; font-size: 13px; }
+  #settings label { font-size: 12px; color: var(--muted); }
+  #settings button { padding: 6px 12px; background: var(--cyan); border: 0; font-weight: 800; cursor: pointer; }
+  .msg { font-size: 12px; color: #f88; margin-top: 4px; }
+  .monitors { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 6px; }
+  .mon .mt { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; font-weight: 800; letter-spacing: .12em;
+             text-transform: uppercase; padding: 3px 6px; color: #fff; }
+  .mon .mt span { font-weight: 600; letter-spacing: .03em; text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .9; }
+  .mon.pvw .mt { background: #1f8f4e; } .mon.pgm .mt { background: #c62828; }
+  .mon .screen { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: #000; }
+  .mon.pvw .screen { outline: 2px solid #1f8f4e; outline-offset: -2px; } .mon.pgm .screen { outline: 2px solid #c62828; outline-offset: -2px; }
+  .mon iframe { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; border: 0; transform-origin: 0 0; pointer-events: none; }
+  body.direct .mon.pvw { opacity: .35; }
+  #take { width: 100%; margin-top: 6px; padding: 12px; border: 0; cursor: pointer; background: #c62828; color: #fff;
+          font: 800 24px var(--font); font-variation-settings: "wdth" 75; letter-spacing: .16em; text-transform: uppercase; }
+  #take small { font-size: 12px; letter-spacing: .08em; opacity: .8; margin-left: 8px; }
+  #take:hover { filter: brightness(1.15); } #take:active { transform: translateY(1px); }
+  body.direct #take { background: #333; color: #888; cursor: default; }
+  .mode { margin-top: 6px; }
+  .opts { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 4px 0 0; font-size: 12px; color: #bbb; }
+  .opts label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  /* camera tiles (multiview) */
+  #cams { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  button.sw.tile { padding: 0; min-height: 0; border-top: 0; outline: 3px solid #2a2a2a; outline-offset: -3px; overflow: hidden; }
+  button.sw.tile .pic { position: relative; aspect-ratio: 16 / 9; background: #0d0d0d; overflow: hidden; }
+  button.sw.tile .pic iframe { position: absolute; left: 0; top: 0; width: 640px; height: 360px; border: 0; transform-origin: 0 0; pointer-events: none; }
+  button.sw.tile .pic .none { position: absolute; inset: 0; display: grid; place-items: center; color: #555; font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+  button.sw.tile .cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 7px 5px; background: linear-gradient(transparent, rgba(0,0,0,.85)); }
+  button.sw.tile .cap .k { font-size: 10px; } button.sw.tile .cap .n { font-size: 15px; }
+  button.sw.tile .hk { z-index: 2; background: rgba(0,0,0,.6); padding: 0 3px; color: #aaa; }
+  button.sw.tile .tl { position: absolute; inset: 0; border: 3px solid transparent; z-index: 3; pointer-events: none; }
+  button.sw.tile.tpvw .tl { border-color: #1f8f4e; }
+  button.sw.tile.tpgm .tl { border-color: #e53935; }
+  button.sw.tile.live::after { top: 6px; bottom: auto; left: 6px; right: auto; z-index: 2; }
+  button.sw.tile.pvw::before { top: 6px; bottom: auto; left: 6px; right: auto; z-index: 2; }
+  button.sw.tile.live.pvw::before { left: 40px; right: auto; }
+  button.sw.tile:hover .tl { border-color: var(--cyan); }
+  .mon .shot { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
+  .mon .shot.on { display: block; }
+  .mode label { display: block; line-height: 1.4; }
+  .mode input { vertical-align: -2px; margin-right: 4px; }
+  button.sw.pvw { box-shadow: inset 0 0 0 2px #1f8f4e; }
+  button.sw.pvw::before { content: "PVW"; position: absolute; right: 6px; bottom: 6px; font-size: 10px; font-weight: 800; letter-spacing: .1em; background: #1f8f4e; padding: 1px 4px; }
+  button.sw.live.pvw::before { right: 40px; }
+  button.sw.ta { border-top-color: var(--ta); } button.sw.tb { border-top-color: var(--tb); }
+  button.sw.ta .k { color: var(--ta); } button.sw.tb .k { color: var(--tb); }
+  .picker { background: var(--panel); padding: 8px; }
+  .chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 4px; }
+  .chip { position: relative; padding: 6px 6px; background: #222; color: #ddd; border: 1px solid #333; cursor: pointer; text-align: left;
+          font: 800 13px var(--font); font-variation-settings: "wdth" 75; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chip small { display: block; font-size: 10px; color: var(--muted); letter-spacing: .08em; }
+  .chip.on { background: var(--teal); border-color: var(--cyan); color: #fff; }
+  .chip i { position: absolute; right: 4px; top: 3px; font-style: normal; font-size: 12px; color: var(--cyan); }
+  .pickrow { display: flex; gap: 6px; margin-top: 8px; }
+  .pickrow button { flex: 1; padding: 9px; border: 0; cursor: pointer; font: 800 14px var(--font); font-variation-settings: "wdth" 75; letter-spacing: .08em; text-transform: uppercase; }
+  #pickGo { background: var(--cyan); color: #0b2630; } #pickGo:disabled { background: #333; color: #777; cursor: default; }
+  #pickClear { background: #2b2b2b; color: #ddd; flex: 0 0 70px; }
+</style>
+</head>
+<body class="direct">
+<div class="top"><img src="assets/emblem.png" alt=""><b>Director</b><span id="status" title="Connection settings">Offline</span></div>
+
+<div id="settings">
+  <label>OBS WebSocket address — <i>localhost:4455</i> on the OBS PC, <i>192.168.x.x:4455</i> on your network, or a <i>wss://</i> tunnel address for remote use</label><input id="host" value="localhost:4455">
+  <label>Password (Tools → WebSocket Server Settings → Show Connect Info)</label><input id="pw" type="password">
+  <button id="save">Connect</button>
+  <div class="msg" id="err"></div>
+</div>
+
+<div class="monitors">
+  <div class="mon pvw"><div class="mt">Preview <span id="pvwName">—</span></div><div class="screen"><iframe id="pvwFrame" src="stage.html?schematic" title="Preview"></iframe></div></div>
+  <div class="mon pgm"><div class="mt">Program <span id="pgmName">—</span></div><div class="screen"><iframe id="pgmFrame" src="stage.html?schematic" title="Program"></iframe><img class="shot" id="pgmShot" alt=""></div></div>
+</div>
+<button id="take" title="Push Preview to Program (Numpad + anywhere, or Space/Enter while this dock is focused)">Take <small>Numpad +</small></button>
+<div class="row mode"><label><input type="checkbox" id="studio"> <b>Preview first</b>&nbsp;— buttons &amp; hotkeys load Preview, TAKE goes live (OBS Studio Mode)</label></div>
+
+<h3>Cameras · click for spotlight</h3>
+<div class="grid" id="cams"></div>
+<div class="opts">
+  <label><input type="checkbox" id="optTiles" checked> Live camera previews</label>
+  <label><input type="checkbox" id="optShot" checked> Real picture in Program monitor</label>
+</div>
+
+<h3>Layouts</h3>
+<div class="grid two" id="layouts"></div>
+<h3>Teams</h3>
+<div class="grid" id="teams"></div>
+<h3>Duels (2-up)</h3>
+<div class="grid two" id="duels"></div>
+<h3>Custom 2 / 3 / 4-up</h3>
+<div class="picker">
+  <div class="chips" id="chips"></div>
+  <div class="pickrow"><button id="pickGo" disabled>Pick seats</button><button id="pickClear">Clear</button></div>
+  <div class="msg" id="pickMsg"></div>
+</div>
+
+<h3>Interview (player + hosts)</h3>
+<div class="grid" id="inter"></div>
+<h3>Screens</h3>
+<div class="grid two" id="screens"></div>
+
+<h3>Auto director <small style="color:var(--muted);letter-spacing:.04em;text-transform:none;font-weight:600">· switches Program directly</small></h3>
+<div class="auto" id="auto">
+  <button id="autoBtn">Start auto cycle</button>
+  <div class="row"><label>Every <input type="number" id="secs" value="20" min="3"> sec</label></div>
+  <div class="row">
+    <label><input type="checkbox" id="aPlayers" checked> Players</label>
+    <label><input type="checkbox" id="aHosts"> Hosts</label>
+    <label><input type="checkbox" id="aTeams"> Team views</label>
+    <label><input type="checkbox" id="aDuels"> Duels</label>
+    <label><input type="checkbox" id="aGrid" checked> Grid between</label>
+    <label><input type="checkbox" id="aSkip" checked> Skip empty seats</label>
+  </div>
+  <div id="next"></div>
+</div>
+
+<script src="config.js"></script>
+<script src="config.local.js" onerror="void 0"></script>
+<script src="assets/layouts.js"></script>
+<script src="assets/names.js"></script>
+<script src="assets/obs-collection.js"></script>
+<script src="assets/sha256.js"></script>
+<script src="assets/cameras.js"></script>
+<script>
+const L = LAYOUTS, HK = OBSCollection.HOTKEYS;
+const $ = id => document.getElementById(id);
+const store = { get: k => { try { return localStorage.getItem("405th." + k); } catch (e) { return null; } },
+                set: (k, v) => { try { localStorage.setItem("405th." + k, v); } catch (e) {} } };
+const P = new URLSearchParams(location.search);
+const OBS = (window.PACK_CONFIG && window.PACK_CONFIG.obs) || {};
+$("host").value = P.get("host") || store.get("host") || OBS.address || "localhost:4455";
+$("pw").value = P.get("pw") || store.get("pw") || OBS.password || "";
+
+/* ---------- buttons ---------- */
+const buttons = [];
+function btn(parent, scene, kicker, seat, big) {
+  const b = document.createElement("button");
+  b.className = "sw" + (big ? " big" : "");
+  const hk = HK[scene] ? OBSCollection.pretty(HK[scene]).replace("Numpad ", "#").replace("Ctrl + ", "^").replace("Alt + ", "Alt") : "";
+  b.innerHTML = `<span class="k"></span><span class="n"></span><span class="hk">${hk}</span>`;
+  b.querySelector(".k").textContent = kicker;
+  b.dataset.scene = scene; if (seat) b.dataset.seat = seat;
+  b.onclick = () => { if (!studio) stopAuto(); go(scene); };
+  parent.appendChild(b); buttons.push(b);
+  return b;
+}
+btn($("layouts"), "Grid", "All seats", null, true).querySelector(".n").textContent = "Grid";
+btn($("layouts"), "Hosts", "Side by side", null, true).querySelector(".n").textContent = "Hosts";
+const T = L.TEAMS;
+document.documentElement.style.setProperty("--ta", T.a.color);
+document.documentElement.style.setProperty("--tb", T.b.color);
+const teamName = t => Names.get("team" + t) || T[t].name;
+const teamBtns = [];
+for (const def of L.SCENES.filter(d => d.view === "team" || d.view === "versus")) {
+  const b = btn($("teams"), def.scene, def.view === "versus" ? "8-up" : "4-up", null, true);
+  if (def.view === "team") b.classList.add("t" + def.arg);
+  teamBtns.push([b, def]);
+}
+// order buttons Team A, Versus, Team B
+const tg = $("teams"); [teamBtns.find(x => x[1].arg === "a"), teamBtns.find(x => x[1].view === "versus"), teamBtns.find(x => x[1].arg === "b")].forEach(x => tg.appendChild(x[0]));
+const duelBtns = L.SCENES.filter(d => d.view === "duel").map(def => [btn($("duels"), def.scene, def.scene.replace("Duel · ", "")), def]);
+const tiles = {};
+for (const s of L.SEATS) {
+  const b = btn($("cams"), "Spotlight · " + L.seatName(s), s.startsWith("host") ? "Host " + s.slice(4) : "Player " + s.slice(1), s);
+  b.classList.add("tile");
+  const k = b.querySelector(".k"), n = b.querySelector(".n");
+  const pic = document.createElement("div"); pic.className = "pic";
+  const cap = document.createElement("div"); cap.className = "cap"; cap.append(k, n);
+  pic.appendChild(cap); b.prepend(pic);
+  const tl = document.createElement("div"); tl.className = "tl"; b.appendChild(tl);
+  b.title = "Spotlight " + L.seatName(s);
+  tiles[s] = { b, pic, url: cameraUrl(s, "dock") };
+}
+function setTiles(on) {
+  for (const [s, t] of Object.entries(tiles)) {
+    let f = t.pic.querySelector("iframe"), none = t.pic.querySelector(".none");
+    if (on && t.url) {
+      if (!f) { f = document.createElement("iframe"); f.src = t.url; f.allow = "autoplay"; t.pic.prepend(f); }
+      else if (f.getAttribute("src") !== t.url) f.src = t.url;
+      if (none) none.remove();
+    } else {
+      if (f) f.remove();
+      if (!none) { none = document.createElement("div"); none.className = "none"; t.pic.prepend(none); }
+      none.textContent = t.url ? "Preview off" : "No camera link";
+    }
+  }
+  fit();
+}
+$("optTiles").checked = store.get("tiles") !== "0";
+$("optTiles").onchange = () => { store.set("tiles", $("optTiles").checked ? "1" : "0"); setTiles($("optTiles").checked); };
+for (const s of L.SEATS.filter(s => s[0] === "p")) btn($("inter"), "Interview · " + L.seatName(s), "Player " + s.slice(1), s);
+[["Starting Soon","Starting"],["Be Right Back","BRB"],["Ending","Ending"],["Roster","Lineup"]].forEach(([sc, n]) =>
+  btn($("screens"), sc, "Screen").querySelector(".n").textContent = n);
+
+let namesKnown = false;
+function paintNames() {
+  for (const [b, def] of teamBtns) b.querySelector(".n").textContent = def.view === "versus" ? "Versus" : teamName(def.arg);
+  for (const [b, def] of duelBtns) {
+    const a = T.a.seats[def.arg], c = T.b.seats[def.arg];
+    const na = Names.get(a) || L.seatName(a), nb = Names.get(c) || L.seatName(c);
+    b.querySelector(".n").textContent = na + " v " + nb;
+  }
+  paintChips();
+  for (const b of buttons) {
+    if (!b.dataset.seat) continue;
+    const name = Names.get(b.dataset.seat);
+    b.querySelector(".n").textContent = name || (namesKnown ? "Empty" : L.seatName(b.dataset.seat));
+    b.classList.toggle("empty", namesKnown && !name);
+  }
+}
+Names.onChange(cur => {
+  namesKnown = Object.keys(cur).length > 0; paintNames();
+  ["pvwFrame", "pgmFrame"].forEach(id => { try { $(id).contentWindow.postMessage({ type: "405th-names", names: Names.snapshot() }, "*"); } catch (e) {} });
+});
+
+/* names + camera links relayed by the overlay running in OBS (makes a remote dock match the show) */
+function applyState(d) {
+  if (d.teams) for (const t of ["a", "b"]) if (d.teams[t]) Object.assign(L.TEAMS[t], d.teams[t]);
+  if (typeof d.dockCameraParams === "string") window.PACK_CONFIG.dockCameraParams = d.dockCameraParams;
+  if (d.cameras) {
+    for (const [s, t] of Object.entries(tiles)) t.url = cameraUrlFrom(d.cameras[s], "dock");
+    setTiles($("optTiles").checked);
+  }
+  if (d.names) Names.set(d.names);
+}
+Names.start();
+paintNames();
+
+/* ---------- preview / program state ---------- */
+let studio = false, pvwScene = "", pgmScene = "";
+const multiMap = {};      // Multi-View scene -> seats (so the monitors can draw it)
+const lastMon = {};
+function monitor(frameId, scene, instant) {
+  lastMon[frameId] = { type: "405th-monitor", scene, seats: multiMap[scene], instant };
+  const f = $(frameId);
+  try { f.contentWindow.postMessage(lastMon[frameId], "*"); } catch (e) {}
+}
+// if a monitor page (re)loads, resend what it should be showing
+["pvwFrame", "pgmFrame"].forEach(id => $(id).addEventListener("load", () => {
+  $(id).contentWindow.postMessage({ type: "405th-names", names: Names.snapshot() }, "*");
+  if (lastMon[id]) $(id).contentWindow.postMessage(Object.assign({}, lastMon[id], { instant: true }), "*");
+}));
+/* which seats are on screen in a scene (for the red/green tally borders) */
+function seatsIn(scene) {
+  const m = L.sceneToView(scene);
+  if (!m) return [];
+  if (m.multi) return (m.seats && m.seats.length) ? m.seats : ["p1", "p2"];
+  return Object.keys(L.view(m.view, m.arg).rects);
+}
+function tally() {
+  const pg = new Set(seatsIn(pgmScene)), pv = new Set(studio ? seatsIn(pvwScene) : []);
+  for (const [s, t] of Object.entries(tiles)) {
+    t.b.classList.toggle("tpgm", pg.has(s));
+    t.b.classList.toggle("tpvw", pv.has(s) && !pg.has(s));
+  }
+}
+function markLive(scene) {
+  liveScene = pgmScene = scene;
+  if (typeof shotFails !== "undefined") shotFails = 0;
+  setTimeout(tally);
+  for (const b of buttons) b.classList.toggle("live", b.dataset.scene === scene);
+  $("pgmName").textContent = scene || "—";
+  monitor("pgmFrame", scene);
+}
+function markPvw(scene) {
+  pvwScene = studio ? scene : "";
+  setTimeout(tally);
+  for (const b of buttons) b.classList.toggle("pvw", !!pvwScene && b.dataset.scene === pvwScene);
+  $("pvwName").textContent = pvwScene || (studio ? "—" : "off");
+  if (pvwScene) monitor("pvwFrame", pvwScene);
+}
+function setStudio(on) {
+  studio = !!on;
+  $("studio").checked = studio;
+  document.body.classList.toggle("direct", !studio);
+  if (studio) request("GetCurrentPreviewScene"); else markPvw("");
+}
+// scale the 1920x1080 monitor pages to fit their boxes
+const fit = () => {
+  document.querySelectorAll(".mon .screen").forEach(sc => { sc.querySelector("iframe").style.transform = `scale(${sc.clientWidth / 1920})`; });
+  document.querySelectorAll(".tile .pic iframe").forEach(f => { f.style.transform = `scale(${f.parentNode.clientWidth / 640})`; });
+};
+new ResizeObserver(fit).observe(document.body);
+setTiles($("optTiles").checked);
+
+/* ---------- obs-websocket v5 ---------- */
+let ws = null, ready = false, reqId = 0, retry = null;
+function setStatus(ok, text) { $("status").textContent = text; $("status").classList.toggle("ok", ok); }
+let fails = 0, tryAlt = false;
+function cleanHost(h) { return h.trim().replace(/^wss?:\/\//i, "").replace(/\/+$/, "") || "localhost:4455"; }
+function connect() {
+  clearTimeout(retry);
+  if (ws) { ws.onclose = null; ws.close(); }
+  ready = false; setStatus(false, "Connecting");
+  const raw = $("host").value.trim();
+  let host = cleanHost(raw);
+  const local = /^(localhost|127\.0\.0\.1|\[::1\])(:|$)/i.test(host);
+  // wss:// if typed, or automatically when this page is https (e.g. GitHub Pages) and OBS isn't on this PC
+  const scheme = /^wss:\/\//i.test(raw) ? "wss" : /^ws:\/\//i.test(raw) ? "ws" : (location.protocol === "https:" && !local ? "wss" : "ws");
+  if (scheme === "ws" && !/:\d+$/.test(host)) host += ":4455";
+  // "localhost" sometimes fails on Windows; alternate with 127.0.0.1 automatically
+  if (tryAlt && /^localhost:/i.test(host)) host = host.replace(/^localhost/i, "127.0.0.1");
+  else if (tryAlt && /^127\.0\.0\.1:/.test(host)) host = host.replace(/^127\.0\.0\.1/, "localhost");
+  const url = scheme + "://" + host;
+  if (scheme === "ws" && location.protocol === "https:" && !/^(localhost|127\.0\.0\.1)/i.test(host)) {
+    setStatus(false, "Offline"); $("settings").classList.add("open");
+    $("err").innerHTML = "This page is on https, so it can only reach OBS through a secure <b>wss://</b> address (see README → Remote control).";
+    return;
+  }
+  try { ws = new WebSocket(url); }
+  catch (e) { setStatus(false, "Offline"); $("err").textContent = e.message; return; }
+  ws.onopen = () => { $("err").textContent = ""; };
+  ws.onmessage = ev => {
+    const msg = JSON.parse(ev.data);
+    if (msg.op === 0) {                       // Hello
+      const d = { rpcVersion: 1, eventSubscriptions: 1 | 4 | 1024 };   // General (relay) + Scenes + UI (Studio Mode)
+      if (msg.d.authentication) {
+        if (!$("pw").value) { $("settings").classList.add("open"); $("err").textContent = "OBS wants a password. Paste it above and click Connect."; }
+        const { challenge, salt } = msg.d.authentication;
+        d.authentication = sha256b64(sha256b64($("pw").value + salt) + challenge);
+      }
+      ws.send(JSON.stringify({ op: 1, d }));
+    } else if (msg.op === 2) {                // Identified
+      ready = true; fails = 0; setStatus(true, "Connected"); $("err").textContent = "";
+      if (tryAlt) { $("host").value = host; store.set("host", host); tryAlt = false; }
+      $("settings").classList.remove("open");
+      request("GetSceneList");
+      request("BroadcastCustomEvent", { eventData: { type: "405th-hello" } });   // ask the overlay for names + cameras
+      request("GetCurrentProgramScene");
+      request("GetStudioModeEnabled");
+    } else if (msg.op === 9) {
+      const cb = batchCb[msg.d.requestId]; delete batchCb[msg.d.requestId];
+      cb && cb(msg.d.results || []);
+    } else if (msg.op === 5 && msg.d.eventType === "CurrentProgramSceneChanged") {
+      markLive(msg.d.eventData.sceneName);
+    } else if (msg.op === 5 && msg.d.eventType === "CustomEvent") {
+      const d = msg.d.eventData || {};
+      if (d.type === "405th-state") applyState(d);
+    } else if (msg.op === 5 && msg.d.eventType === "SceneNameChanged") {
+      learnScenes([msg.d.eventData.sceneName]);
+      if (pgmScene === msg.d.eventData.oldSceneName) markLive(msg.d.eventData.sceneName);
+      if (pvwScene === msg.d.eventData.oldSceneName) markPvw(msg.d.eventData.sceneName);
+    } else if (msg.op === 5 && msg.d.eventType === "CurrentPreviewSceneChanged") {
+      markPvw(msg.d.eventData.sceneName);
+    } else if (msg.op === 5 && msg.d.eventType === "StudioModeStateChanged") {
+      setStudio(msg.d.eventData.studioModeEnabled);
+    } else if (msg.op === 7) {
+      const r = msg.d;
+      if (r.requestType === "GetCurrentProgramScene" && r.responseData)
+        markLive(r.responseData.sceneName || r.responseData.currentProgramSceneName);
+      if (r.requestType === "GetCurrentPreviewScene" && r.responseData)
+        markPvw(r.responseData.sceneName || r.responseData.currentPreviewSceneName);
+      if (r.requestType === "GetStudioModeEnabled" && r.responseData) setStudio(r.responseData.studioModeEnabled);
+      if (r.requestType === "GetSourceScreenshot") {
+        shotBusy = false;
+        if (r.requestStatus.result && r.responseData && r.responseData.imageData) {
+          shotFails = 0; $("pgmShot").src = r.responseData.imageData; $("pgmShot").classList.toggle("on", $("optShot").checked);
+        } else { shotFails++; $("pgmShot").classList.remove("on"); }
+        return;
+      }
+      if (r.requestType === "GetSceneList" && r.responseData) learnScenes(r.responseData.scenes.map(x => x.sceneName));
+      if (!r.requestStatus.result && r.requestType !== "GetCurrentPreviewScene") $("err").textContent = r.requestStatus.comment || "Request failed";
+    }
+  };
+  ws.onclose = e => {
+    ready = false;
+    setStatus(false, e.code === 4009 ? "Bad password" : "Offline");
+    if (e.code === 4009) { $("settings").classList.add("open"); $("err").textContent = "Wrong WebSocket password. Copy it again from OBS → Tools → WebSocket Server Settings → Show Connect Info."; return; }
+    if (e.code >= 4000) { $("settings").classList.add("open"); $("err").textContent = `OBS refused the connection (${e.code}${e.reason ? ": " + e.reason : ""}).`; }
+    fails++;
+    if (fails >= 2 && e.code < 4000) {
+      $("settings").classList.add("open");
+      $("err").innerHTML = `Can't reach OBS at <b>${url}</b>. Check: Tools → WebSocket Server Settings → <b>Enable WebSocket server</b> is ticked and you clicked <b>OK</b>; the port matches (default 4455); OBS is version 28 or newer.`;
+    }
+    tryAlt = !tryAlt;
+    retry = setTimeout(connect, 3000);
+  };
+}
+function request(type, data) {
+  if (!ready) { $("settings").classList.add("open"); return; }
+  ws.send(JSON.stringify({ op: 6, d: { requestType: type, requestId: "r" + (++reqId), requestData: data || {} } }));
+}
+function go(scene) {      // buttons + picker: Preview when "Preview first" is on, otherwise straight to Program
+  request(studio ? "SetCurrentPreviewScene" : "SetCurrentProgramScene", { sceneName: scene });
+}
+function goLive(scene) { request("SetCurrentProgramScene", { sceneName: scene }); }   // auto director
+function take() {
+  if (!studio) return;
+  stopAuto();
+  request("TriggerStudioModeTransition");
+}
+$("take").onclick = take;
+
+/* real picture of Program, grabbed from OBS a few times a second */
+var shotBusy = false, shotFails = 0;
+$("optShot").checked = store.get("shot") !== "0";
+$("optShot").onchange = () => { store.set("shot", $("optShot").checked ? "1" : "0"); if (!$("optShot").checked) $("pgmShot").classList.remove("on"); };
+setInterval(() => {
+  if (!ready || shotBusy || !$("optShot").checked || !pgmScene || shotFails > 5) return;
+  shotBusy = true;
+  request("GetSourceScreenshot", { sourceName: pgmScene, imageFormat: "jpg", imageWidth: 480, imageCompressionQuality: 65 });
+  setTimeout(() => shotBusy = false, 2000);   // safety
+}, 300);
+$("studio").onchange = () => {
+  const on = $("studio").checked;
+  setStudio(on);                                   // take effect in the dock immediately
+  request("SetStudioModeEnabled", { studioModeEnabled: on });
+  setTimeout(() => request("GetStudioModeEnabled"), 600);   // then confirm what OBS actually did
+};
+document.addEventListener("keydown", e => {
+  if (/INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  if (e.code === "Space" || e.code === "Enter" || e.code === "NumpadEnter" || e.code === "NumpadAdd") { e.preventDefault(); take(); }
+});
+$("status").onclick = () => $("settings").classList.toggle("open");
+$("save").onclick = () => { fails = 0; tryAlt = false; store.set("host", $("host").value.trim()); store.set("pw", $("pw").value); connect(); };
+connect();
+
+/* ---------- custom 2/3/4-up ---------- */
+var picks = [];
+var chipEls = {};
+for (const seat of L.SEATS) {
+  const c = document.createElement("button");
+  c.className = "chip";
+  c.onclick = () => {
+    const i = picks.indexOf(seat);
+    if (i >= 0) picks.splice(i, 1); else if (picks.length < 4) picks.push(seat);
+    paintChips();
+  };
+  $("chips").appendChild(c); chipEls[seat] = c;
+}
+function paintChips() {
+  if (!chipEls) return;
+  for (const seat of L.SEATS) {
+    const c = chipEls[seat]; if (!c) continue;
+    const i = picks.indexOf(seat);
+    c.classList.toggle("on", i >= 0);
+    c.innerHTML = `<small></small><span></span>${i >= 0 ? "<i>" + (i + 1) + "</i>" : ""}`;
+    c.querySelector("small").textContent = L.seatName(seat);
+    c.querySelector("span").textContent = Names.get(seat) || "—";
+  }
+  const n = picks.length;
+  $("pickGo").disabled = !n;
+  $("pickGo").textContent = !n ? "Pick seats" : n === 1 ? "Show full screen" : `Show ${n}-up`;
+}
+$("pickClear").onclick = () => { picks = []; paintChips(); };
+
+let liveScene = "";
+let batchCb = {};
+function batch(requests, cb) {
+  if (!ready) { $("settings").classList.add("open"); return; }
+  const id = "b" + (++reqId);
+  if (cb) batchCb[id] = cb;
+  ws.send(JSON.stringify({ op: 8, d: { requestId: id, haltOnFailure: false, executionType: 0,
+    requests: requests.map(r => ({ requestType: r[0], requestData: r[1] || {} })) } }));
+}
+/* Multi-View scenes are renamed to list their seats ("Multi-View A · Host 2, P7, P8");
+   the overlay reads the name, so it always matches. We track their current names here. */
+const MULTI_BASES = L.SCENES.filter(d => d.multi).map(d => d.scene);
+const multiNames = Object.fromEntries(MULTI_BASES.map(b => [b, b]));
+function learnScenes(list) {
+  for (const name of list) { const b = L.multiBase(name); if (b) multiNames[b] = name; }
+}
+function showPicks(seats) {
+  seats = seats.slice(0, 4);
+  if (!seats.length) return;
+  if (seats.length === 1) { go("Spotlight · " + L.seatName(seats[0])); return; }
+  // never rename the scene that is on air: use the other Multi-View
+  const liveBase = L.multiBase(pgmScene);
+  const base = liveBase === MULTI_BASES[0] ? MULTI_BASES[1] : MULTI_BASES[0];
+  const oldName = multiNames[base];
+  const newName = L.multiName(base, seats);
+  const reqs = [];
+  if (oldName !== newName) reqs.push(["SetSceneName", { sceneName: oldName, newSceneName: newName }]);
+  reqs.push([studio ? "SetCurrentPreviewScene" : "SetCurrentProgramScene", { sceneName: newName }]);
+  batch(reqs, results => {
+    const bad = results.filter(r => !r.requestStatus.result);
+    if (!bad.length) multiNames[base] = newName;
+    $("pickMsg").textContent = bad.length ? bad.map(r => r.requestType + ": " + (r.requestStatus.comment || "failed")).join("; ")
+      + " — if the scene list changed, click Clear and try again." : "";
+    if (bad.length) request("GetSceneList");
+  });
+}
+$("pickGo").onclick = () => { if (!studio) stopAuto(); showPicks(picks); };
+
+/* ---------- auto director ---------- */
+let autoTimer = null, autoIdx = -1;
+function sequence() {
+  const seats = [];
+  if ($("aHosts").checked) seats.push("host1", "host2");
+  if ($("aPlayers").checked) seats.push(...L.SEATS.filter(s => s[0] === "p"));
+  const filled = s => !$("aSkip").checked || !namesKnown || Names.get(s);
+  const shots = seats.filter(filled).map(s => "Spotlight · " + L.seatName(s));
+  if ($("aTeams").checked) L.SCENES.filter(d => d.view === "team" || d.view === "versus").forEach(d => shots.push(d.scene));
+  if ($("aDuels").checked) L.SCENES.filter(d => d.view === "duel" && filled(T.a.seats[d.arg]) && filled(T.b.seats[d.arg])).forEach(d => shots.push(d.scene));
+  const seq = [];
+  for (const sc of shots) { if ($("aGrid").checked) seq.push("Grid"); seq.push(sc); }
+  return seq.length ? seq : ["Grid"];
+}
+function stepAuto() {
+  const seq = sequence();
+  autoIdx = (autoIdx + 1) % seq.length;
+  goLive(seq[autoIdx]);
+  const nx = seq[(autoIdx + 1) % seq.length];
+  $("next").textContent = "Next: " + nx;
+}
+function startAuto() {
+  const secs = Math.max(3, Number($("secs").value) || 20);
+  $("auto").classList.add("on"); $("autoBtn").textContent = "Stop auto cycle";
+  stepAuto(); autoTimer = setInterval(stepAuto, secs * 1000);
+}
+function stopAuto() {
+  clearInterval(autoTimer); autoTimer = null;
+  $("auto").classList.remove("on"); $("autoBtn").textContent = "Start auto cycle"; $("next").textContent = "";
+}
+$("autoBtn").onclick = () => autoTimer ? stopAuto() : startAuto();
+$("secs").onchange = () => { if (autoTimer) { stopAuto(); startAuto(); } };
+</script>
+</body>
+</html>

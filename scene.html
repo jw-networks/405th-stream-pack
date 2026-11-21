@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<!-- Full-screen scene: Starting Soon / Be Right Back / Thanks for Watching.
+     OBS Browser Source 1920 x 1080.
+     URL options:
+       ?type=starting | brb | ending
+       &minutes=10        countdown from when the source loads (tick "Refresh when scene becomes active")
+       &at=19:30          or count down to a clock time (24h, your PC's time zone)
+       &title=...&sub=... override the text
+       &demo              sample host names -->
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  body { width: 1920px; height: 1080px; position: relative; }
+  .left  { position: absolute; left: 0; top: 0; width: 900px; height: 1080px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 70px; }
+  .left img { width: 470px; filter: drop-shadow(0 20px 40px rgba(0,0,0,.5)); animation: float 6s ease-in-out infinite; }
+  @keyframes float { 50% { transform: translateY(-10px); } }
+  .tag { display: flex; align-items: stretch; gap: 30px; font-size: 60px; font-weight: 800; text-transform: uppercase; line-height: .98; }
+  .tag .rule { width: 3px; background: rgba(255,255,255,.85); }
+  .split { position: absolute; left: 900px; top: 70px; bottom: 70px; width: 3px; background: rgba(255,255,255,.85); }
+
+  .right { position: absolute; left: 990px; right: 90px; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; }
+  .eyebrow { display: flex; align-items: center; gap: 18px; font-size: 34px; }
+  h1 { margin-top: 18px; font-size: 150px; font-weight: 800; text-transform: uppercase; line-height: .9; letter-spacing: .01em; }
+  .sub { margin-top: 28px; font-size: 40px; font-weight: 600; color: #d9dfe1; text-transform: uppercase; letter-spacing: .04em; }
+  .count { margin-top: 46px; display: flex; align-items: stretch; height: 120px; width: fit-content; box-shadow: 0 12px 30px rgba(0,0,0,.45); }
+  .count .k { background: var(--teal); display: grid; place-items: center; padding: 0 30px; font-size: 34px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+  .count .t { display: grid; place-items: center; padding: 0 36px; min-width: 300px; font-size: 92px; font-weight: 800; font-variant-numeric: tabular-nums; border-top: 4px solid var(--cyan); }
+  .hosts { margin-top: 50px; font-size: 32px; }
+  .hosts b { color: var(--white); font-size: 44px; font-weight: 800; letter-spacing: .03em; display: block; margin-top: 6px; text-transform: uppercase; }
+  .url { margin-top: 50px; font-size: 76px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+  .bars { position: absolute; left: 990px; bottom: 90px; display: flex; gap: 10px; }
+  .bars i { width: 10px; height: 34px; background: var(--cyan); animation: eq 1.2s ease-in-out infinite; transform-origin: bottom; }
+  .bars i:nth-child(2){animation-delay:.15s}.bars i:nth-child(3){animation-delay:.3s}.bars i:nth-child(4){animation-delay:.45s}.bars i:nth-child(5){animation-delay:.6s}
+  @keyframes eq { 50% { transform: scaleY(.3); opacity: .5; } }
+  .hide { display: none !important; }
+  .right > * { animation: rise .9s var(--ease) both; }
+  .right > *:nth-child(2){animation-delay:.08s}.right > *:nth-child(3){animation-delay:.16s}.right > *:nth-child(4){animation-delay:.24s}.right > *:nth-child(5){animation-delay:.32s}
+  @keyframes rise { from { opacity: 0; transform: translateY(30px); } }
+</style>
+</head>
+<body class="hexbg">
+<div class="left">
+  <img src="assets/logo.png" alt="">
+  <div class="tag"><div id="tl"></div><div class="rule"></div><div id="tr"></div></div>
+</div>
+<div class="split"></div>
+<div class="right">
+  <div class="eyebrow"><span class="label" id="eyebrow"></span><span class="kink"></span></div>
+  <h1 id="title"></h1>
+  <div class="sub" id="sub"></div>
+  <div class="count" id="count"><div class="k">Live in</div><div class="t" id="t">--:--</div></div>
+  <div class="hosts label" id="hosts">Your hosts <b id="hn"></b></div>
+  <div class="url" id="url"></div>
+</div>
+<div class="bars"><i></i><i></i><i></i><i></i><i></i></div>
+
+<script src="config.js"></script>
+<script src="config.local.js" onerror="void 0"></script>
+<script src="assets/names.js"></script>
+<script>
+  const P = new URLSearchParams(location.search);
+  const C = Names.config;
+  const type = (P.get("type") || "starting").toLowerCase();
+  const TEXT = {
+    starting: { eyebrow: C.eventTitle, title: "Starting<br>soon",   sub: "Grab your gear — we drop in shortly", k: "Live in" },
+    brb:      { eyebrow: C.eventTitle, title: "Be right<br>back",   sub: "Stay tuned — rearming now",           k: "Back in" },
+    ending:   { eyebrow: "Thanks for watching", title: "See you<br>next time", sub: "Join the division today", k: "" }
+  }[type] || {};
+  const $ = id => document.getElementById(id);
+  $("eyebrow").textContent = TEXT.eyebrow || "";
+  $("title").innerHTML = P.get("title") ? P.get("title").replace(/\|/g, "<br>") : TEXT.title;
+  $("sub").textContent = P.get("sub") || TEXT.sub;
+  $("tl").innerHTML = (C.taglineLeft || []).join("<br>");
+  $("tr").innerHTML = (C.taglineRight || []).join("<br>");
+  $("url").textContent = C.website || "";
+  $("count").querySelector(".k").textContent = TEXT.k;
+  if (type !== "ending") $("url").classList.add("hide");
+
+  // countdown
+  let end = null;
+  if (P.get("minutes")) end = Date.now() + Number(P.get("minutes")) * 60000;
+  if (P.get("at")) {
+    const [h, m] = P.get("at").split(":").map(Number);
+    const d = new Date(); d.setHours(h, m || 0, 0, 0);
+    if (d < Date.now() - 6 * 3600e3) d.setDate(d.getDate() + 1);
+    end = d.getTime();
+  }
+  if (!end || type === "ending") $("count").classList.add("hide");
+  function tick() {
+    if (!end) return;
+    const s = Math.max(0, Math.round((end - Date.now()) / 1000));
+    const mm = Math.floor(s / 60), ss = String(s % 60).padStart(2, "0");
+    $("t").textContent = s > 0 ? `${mm}:${ss}` : (type === "brb" ? "Soon" : "Now");
+  }
+  tick(); setInterval(tick, 250);
+
+  // host names from the switcher file
+  Names.onChange(() => {
+    const hs = [Names.get("host1"), Names.get("host2")].filter(Boolean);
+    $("hosts").classList.toggle("hide", !hs.length);
+    $("hn").textContent = hs.join("  &  ");
+  });
+  Names.start();
+</script>
+</body>
+</html>

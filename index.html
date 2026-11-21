@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>405th Stream Pack</title>
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  html, body { overflow: auto; }
+  body { min-height: 100vh; padding: 40px 24px; font-stretch: 100%; font-variation-settings: "wdth" 100; }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: 22px; margin-bottom: 26px; }
+  header img { width: 88px; }
+  h1 { font-size: 46px; font-weight: 800; text-transform: uppercase; font-variation-settings: "wdth" 75; line-height: 1; }
+  h1 small { display: block; font-size: 18px; letter-spacing: .14em; color: var(--cyan); margin-top: 6px; }
+  .card { background: rgba(0,0,0,.4); border-top: 3px solid var(--cyan); padding: 22px 24px; margin-bottom: 18px; }
+  .go { display: inline-block; padding: 16px 30px; background: var(--cyan); color: #0b2630; text-decoration: none;
+        font: 800 24px var(--font); font-variation-settings: "wdth" 75; letter-spacing: .1em; text-transform: uppercase; }
+  .go:hover { filter: brightness(1.1); }
+  p, li { font-size: 16px; line-height: 1.6; color: #ddd; }
+  ol { margin-left: 22px; }
+  code { background: #0f0f0f; padding: 2px 6px; color: #d8f4fb; }
+  a { color: var(--cyan); }
+  h2 { font-size: 20px; letter-spacing: .12em; text-transform: uppercase; color: var(--cyan); margin-bottom: 10px; font-variation-settings: "wdth" 75; }
+</style>
+</head>
+<body class="hexbg">
+<div class="wrap">
+  <header><img src="assets/emblem.png" alt=""><h1>405th Stream Pack<small>Director · Overlays · OBS</small></h1></header>
+
+  <div class="card">
+    <h2>Remote Director</h2>
+    <p>Switch the show from any browser: preview, TAKE, camera multiview, team views, custom 2/3/4-ups and auto cycle.</p>
+    <p style="margin:14px 0 18px"><a class="go" href="control.html">Open the Director</a></p>
+    <p>When it opens, click the red <b>Offline</b> badge and enter:</p>
+    <ol>
+      <li><b>Address</b>: the show's secure tunnel address, e.g. <code>wss://something.trycloudflare.com</code> (ask the show runner).</li>
+      <li><b>Password</b>: the OBS WebSocket password (ask the show runner).</li>
+    </ol>
+    <p>Names and camera previews load automatically from the show once you're connected.</p>
+  </div>
+
+  <div class="card">
+    <h2>Running the show (OBS PC)</h2>
+    <p>Download this repository, then follow <a href="https://github.com/">README.md</a> → "Importing into OBS" and "Remote control".</p>
+  </div>
+</div>
+<script>
+  // point the README link at this repo when hosted on GitHub Pages (user.github.io/repo/)
+  const m = location.hostname.match(/^([^.]+)\.github\.io$/);
+  const repo = location.pathname.split("/").filter(Boolean)[0];
+  if (m && repo) document.querySelector('a[href="https://github.com/"]').href = `https://github.com/${m[1]}/${repo}#readme`;
+</script>
+</body>
+</html>

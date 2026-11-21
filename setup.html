@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<!-- Open this file in Chrome/Edge (double-click). It builds an OBS scene collection with
+     every layout scene and hotkey already set up. -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>405th Stream Pack — OBS Setup</title>
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  html, body { overflow: auto; }
+  body { min-height: 100vh; padding: 48px; font-stretch: 100%; font-variation-settings: "wdth" 100; }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: 24px; margin-bottom: 30px; }
+  header img { width: 96px; }
+  h1 { font-size: 44px; font-weight: 800; text-transform: uppercase; font-variation-settings: "wdth" 75; letter-spacing: .02em; }
+  h2 { font-size: 22px; margin: 34px 0 12px; text-transform: uppercase; letter-spacing: .12em; color: var(--cyan); font-variation-settings: "wdth" 75; }
+  .card { background: rgba(0,0,0,.35); border-top: 3px solid var(--cyan); padding: 22px 26px; }
+  label { display: block; font-size: 15px; color: var(--muted); margin: 14px 0 6px; }
+  input[type=text], input[type=number] { width: 100%; padding: 12px 14px; font: 16px/1.2 Consolas, monospace; background: #0f0f0f; color: #fff; border: 1px solid #333; }
+  .check { display: flex; gap: 10px; align-items: flex-start; margin-top: 14px; font-size: 16px; color: #ddd; }
+  .check input { margin-top: 4px; }
+  a { color: var(--cyan); }
+  button { margin-top: 22px; padding: 16px 28px; background: var(--cyan); color: #0b2630; border: 0; font: 800 22px var(--font); font-variation-settings: "wdth" 75; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
+  button:hover { filter: brightness(1.1); }
+  table { width: 100%; border-collapse: collapse; font-size: 16px; }
+  td { padding: 8px 10px; border-bottom: 1px solid #2a2a2a; }
+  td:first-child { color: var(--cyan); font-weight: 700; white-space: nowrap; width: 240px; }
+  ol { margin-left: 22px; line-height: 1.7; font-size: 16px; color: #ddd; }
+  code { background: #0f0f0f; padding: 2px 6px; color: #d8f4fb; }
+  .note { font-size: 14px; color: var(--muted); margin-top: 10px; }
+</style>
+</head>
+<body class="hexbg">
+<div class="wrap">
+  <header><img src="assets/emblem.png" alt=""><h1>OBS Setup — Scenes &amp; Hotkeys</h1></header>
+
+  <div class="card">
+    <label for="root">Where this pack folder lives on the streaming PC (auto-detected)</label>
+    <input type="text" id="root">
+    <div class="note">If you move the folder later, run this page again from the new location.</div>
+    <label class="check"><input type="checkbox" id="slate">
+      <span>Show a <b>Standby</b> card on any seat whose name is blank.</span></label>
+    <button id="go">Download scene collection</button>
+  </div>
+
+  <h2>Then in OBS</h2>
+  <div class="card">
+    <ol>
+      <li>Settings → Video: Base (Canvas) Resolution <b>1920×1080</b>.</li>
+      <li>Menu <b>Scene Collection → Import</b> → pick the downloaded <code>405th-scenes.json</code>, then switch to it.</li>
+      <li>Make sure each seat's VDO.Ninja link is in <code>config.js</code> → <code>cameras</code>. The cameras are drawn by the overlay, so there's nothing to place in OBS.</li>
+      <li>Optional: <b>Docks → Custom Browser Docks</b> → add <code>control.html</code> for click-to-switch buttons (see README).</li>
+    </ol>
+  </div>
+
+  <h2>Hotkeys (built in)</h2>
+  <div class="card"><table id="keys"></table>
+    <div class="note">NumLock must be on. Change any of them later in OBS → Settings → Hotkeys.
+    Custom 2/3/4-up views (Multi-View A/B) are driven from the Director dock.<br>
+    <b>Studio Mode on:</b> scene keys load <b>Preview</b>; <b>Numpad +</b> takes it live. <b>Studio Mode off:</b> scene keys cut straight to live.</div></div>
+</div>
+
+<script src="config.js"></script>
+<script src="config.local.js" onerror="void 0"></script>
+<script src="assets/layouts.js"></script>
+<script src="assets/obs-collection.js"></script>
+<script>
+  // guess the folder from this page's own location
+  let p = decodeURIComponent(location.pathname).replace(/\/setup\.html$/, "");
+  if (/^\/[A-Za-z]:\//.test(p)) p = p.slice(1);          // /C:/... -> C:/...
+  document.getElementById("root").value = location.protocol === "file:" ? p : "C:/Streams/405th-stream-pack";
+
+  const rows = [
+    ["Grid"], ["Hosts"], ["Team A", "Alt + Numpad 7"], ["Teams · Versus", "Alt + Numpad 8"], ["Team B", "Alt + Numpad 9"],
+    ["Duel · P1 v P5 … P4 v P8", "Alt + Numpad 1 … 4"], ["Spotlight · Host 1"], ["Spotlight · Host 2"],
+    ["Spotlight · P1 … P8", "Numpad 1 … 8"], ["Interview · P1 … P8", "Ctrl + Numpad 1 … 8"],
+    ["Roster"], ["Be Right Back"], ["Starting Soon"], ["Ending"], ["TAKE — push Preview to Program (Studio Mode)", "Numpad +"]
+  ];
+  document.getElementById("keys").innerHTML = rows.map(([scene, k]) =>
+    `<tr><td>${k || OBSCollection.pretty(OBSCollection.HOTKEYS[scene])}</td><td>${scene}</td></tr>`).join("");
+  // In Studio Mode, the scene keys load Preview and Numpad + takes it live.
+
+  document.getElementById("go").onclick = () => {
+    const json = OBSCollection.build({
+      root: document.getElementById("root").value.trim(),
+      slate: document.getElementById("slate").checked,
+    });
+    const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "405th-scenes.json";
+    a.click();
+  };
+</script>
+</body>
+</html>
