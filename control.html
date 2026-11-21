@@ -92,7 +92,19 @@
   .opts { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 4px 0 0; font-size: 12px; color: #bbb; }
   .opts label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
   /* camera tiles (multiview) */
-  #cams { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  /* camera block: hosts stacked on the left, Team A (P1–P4) on top row, Team B (P5–P8) on bottom row */
+  #cams { grid-template-columns: 1fr 6px repeat(4, 1fr); gap: 5px;
+          grid-template-areas: "host1 . p1 p2 p3 p4" "host2 . p5 p6 p7 p8"; }
+  @media (max-width: 560px) {   /* narrow dock: hosts in their own row above the players */
+    #cams { grid-template-columns: repeat(4, 1fr); grid-template-areas: "host1 host1 host2 host2" "p1 p2 p3 p4" "p5 p6 p7 p8"; }
+  }
+  button.sw.tile .cap { padding: 12px 6px 4px; }
+  button.sw.tile .cap .k { font-size: 9px; letter-spacing: .12em; }
+  button.sw.tile .cap .n { font-size: 14px; }
+  button.sw.tile.seat-host .cap .k { color: #e8eef0; }
+  button.sw.tile.team-a .cap .k { color: var(--ta); }
+  button.sw.tile.team-b .cap .k { color: var(--tb); }
+  button.sw.tile .hk { font-size: 9px; }
   button.sw.tile { padding: 0; min-height: 0; border-top: 0; outline: 3px solid #2a2a2a; outline-offset: -3px; overflow: hidden; }
   button.sw.tile .pic { position: relative; aspect-ratio: 16 / 9; background: #0d0d0d; overflow: hidden; }
   button.sw.tile .pic iframe { position: absolute; left: 0; top: 0; width: 640px; height: 360px; border: 0; transform-origin: 0 0; pointer-events: none; }
@@ -213,7 +225,7 @@
 <script src="assets/sha256.js"></script>
 <script src="assets/cameras.js"></script>
 <script>
-const VERSION = "v8 · resizable monitors";   // shown next to the title, so you can tell which copy is loaded
+const VERSION = "v9 · camera block";   // shown next to the title, so you can tell which copy is loaded
 const L = LAYOUTS, HK = OBSCollection.HOTKEYS;
 document.getElementById("ver").textContent = VERSION;
 document.getElementById("ver").title = "Loaded from " + location.href;
@@ -257,6 +269,8 @@ const tiles = {};
 for (const s of L.SEATS) {
   const b = btn($("cams"), "Spotlight · " + L.seatName(s), s.startsWith("host") ? "Host " + s.slice(4) : "Player " + s.slice(1), s);
   b.classList.add("tile");
+  b.style.gridArea = s;
+  b.classList.add(s.startsWith("host") ? "seat-host" : L.teamOf(s) === "a" ? "team-a" : "team-b");
   const k = b.querySelector(".k"), n = b.querySelector(".n");
   const pic = document.createElement("div"); pic.className = "pic";
   const cap = document.createElement("div"); cap.className = "cap"; cap.append(k, n);
