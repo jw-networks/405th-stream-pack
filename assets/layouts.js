@@ -135,16 +135,20 @@
     multi2: "view=multi&seats=p1,p2&notint", multi3: "view=multi&seats=p1,p2,p3&notint", multi4: "view=multi&seats=p1,p2,p3,p4&notint"
   };
 
-  /* SEATS GRID: one scene with all 10 cameras in a 4 x 3 grid (480 x 270 cells).
-     It sits hidden off-screen in every layout scene (keeps every camera live + audible), and the
-     Director grabs ONE snapshot of it to fill all 10 camera tiles. */
-  const SEATS_GRID = { scene: "SEATS GRID (dock · audio · keep)", cols: 4, cellW: 480, cellH: 270 };
+  /* CAMERA TILES: one scene with all 10 cameras in a 4 x 3 grid (480 x 270 cells). Not used on air:
+     the Director grabs ONE snapshot of it to fill all 10 camera tiles.
+     (Older collections called it "SEATS GRID (dock · audio · keep)"; the Director still understands that.) */
+  const SEATS_GRID = { scene: "CAMERA TILES (dock · keep)", legacy: "SEATS GRID (dock · audio · keep)", cols: 4, cellW: 480, cellH: 270 };
+  /* AUDIO: a scene holding all 10 cameras, placed off-screen in every on-air scene. A camera whose item is
+     switched ON here is always heard; OFF means it's only heard while it's on screen (audio follows the picture).
+     The Director / mixer switches flip these items. */
+  const AUDIO_SCENE = "AUDIO · always on (keep)";
   const seatCell = seat => {
     const i = SEATS.indexOf(seat), c = i % SEATS_GRID.cols, r = Math.floor(i / SEATS_GRID.cols);
     return { x: c * SEATS_GRID.cellW, y: r * SEATS_GRID.cellH, w: SEATS_GRID.cellW, h: SEATS_GRID.cellH, col: c, row: r };
   };
 
-  const api = { SEATS_GRID, seatCell, PLATE, plateXform, framesFor, FRAMES, W, H, SEATS, GRID, UP, SIDE, TEAMS, teamOf, view, SCENES, sceneToView, seatName, multiName, multiBase };
+  const api = { SEATS_GRID, AUDIO_SCENE, seatCell, PLATE, plateXform, framesFor, FRAMES, W, H, SEATS, GRID, UP, SIDE, TEAMS, teamOf, view, SCENES, sceneToView, seatName, multiName, multiBase };
   if (typeof window !== "undefined") window.LAYOUTS = api;
   else globalThis.LAYOUTS = api;
 })();

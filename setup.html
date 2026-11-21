@@ -49,7 +49,14 @@
     <label class="check"><input type="checkbox" id="vsOverride">
       <span>Play the <b>405th Versus</b> stinger whenever you switch to Team A, Team B, Versus or a Duel (you can also turn this on/off any time in the Director). All three stingers are added to OBS either way.</span></label>
     <div class="note">Move plugin: <a href="https://obsproject.com/forum/resources/move.913/" target="_blank">obsproject.com/forum/resources/move.913</a>. Install it before importing if you pick Move.</div>
-    <label class="check"><input type="checkbox" id="audioAll" checked>
+    <label for="audioMode">Camera audio</label>
+    <select id="audioMode" style="padding:10px;font-size:16px;background:#0f0f0f;color:#fff;border:1px solid #333">
+      <option value="follow" selected>Follows the picture: only people on screen are heard (recommended)</option>
+      <option value="all">Everyone always on</option>
+    </select>
+    <label class="check"><input type="checkbox" id="hostsAlways" checked>
+      <span><b>Host mics always on</b>, even when the hosts aren't on screen. Both can be switched any time in the Director or Audio dock.</span></label>
+    <label class="check" style="display:none"><input type="checkbox" id="audioAll">
       <span><b>Everyone's audio always on.</b> All 10 cameras stay live in the mix, even when they're not on screen. Each camera still gets its own volume slider.</span></label>
     <button id="go">Download scene collection</button>
   </div>
@@ -97,7 +104,8 @@
     const json = OBSCollection.build({
       root: document.getElementById("root").value.trim(),
       transition: document.getElementById("tr").value,
-      audioAll: document.getElementById("audioAll").checked,
+      audioMode: document.getElementById("audioMode").value,
+      hostsAlways: document.getElementById("hostsAlways").checked,
       cameraUrl: seat => cameraUrl(seat, "overlay"),
       versusOverride: document.getElementById("vsOverride").checked,
     });

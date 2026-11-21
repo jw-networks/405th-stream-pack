@@ -57,6 +57,8 @@
           font: 800 12px var(--font); font-variation-settings: "wdth" 75; letter-spacing: .12em; text-transform: uppercase; }
   .strip.muted .mute { background: #c62828; color: #fff; }
   .strip.missing { opacity: .4; }
+  .strip.silent { opacity: .45; }
+  .strip.silent .db::after { content: " · off"; color: #888; }
   .opts { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; font-size: 12px; color: #bbb; }
   .opts label { display: flex; align-items: center; gap: 5px; }
   .opts select { background: #0f0f0f; color: #ddd; border: 1px solid #333; padding: 2px; font-size: 12px; }
@@ -72,21 +74,24 @@
   <div class="msg" id="err"></div>
 </div>
 
+<div id="audioModes" style="margin-bottom:10px"></div>
 <div class="groups" id="groups"></div>
 <div class="opts">
   <label><input type="checkbox" id="optMeters" checked> Level meters</label>
   <label>Fader height <select id="optH"><option value="120">small</option><option value="170" selected>medium</option><option value="240">large</option></select></label>
   <label><input type="checkbox" id="optOther" checked> Show other audio (mic, desktop…)</label>
 </div>
-<div class="hint">Drag a fader, or scroll over it for ±1 dB. Double-click a fader to reset it to 0 dB. A red dot means that person is on screen live.</div>
+<div class="hint">Drag a fader, or scroll over it for ±1 dB. Double-click a fader to reset it to 0 dB. Red dot = on screen live.
+Dimmed = not heard right now (off screen and not set to "Always heard").</div>
 
 <script src="config.js"></script>
 <script src="config.local.js" onerror="void 0"></script>
 <script src="assets/layouts.js"></script>
 <script src="assets/names.js"></script>
 <script src="assets/sha256.js"></script>
+<script src="assets/audiomodes.js"></script>
 <script>
-const VERSION = "v1";
+const VERSION = "v2";
 const L = LAYOUTS, $ = id => document.getElementById(id);
 $("ver").textContent = VERSION;
 const store = { get: k => { try { return localStorage.getItem("405th." + k); } catch (e) { return null; } },
@@ -238,7 +243,13 @@ function tally() {
   const m = L.sceneToView(pgmScene);
   let on = [];
   if (m) on = m.multi ? ((m.seats && m.seats.length) ? m.seats : ["p1", "p2"]) : Object.keys(L.view(m.view, m.arg).rects);
-  for (const st of Object.values(strips)) st.el.classList.toggle("onair", !!st.seat && on.includes(st.seat));
+  for (const st of Object.values(strips)) {
+    st.el.classList.toggle("onair", !!st.seat && on.includes(st.seat));
+    // heard right now = on screen, or set to "always heard"
+    const heard = !st.seat || !audioModes.known() || on.includes(st.seat) || audioModes.always(st.seat);
+    st.el.classList.toggle("silent", !heard);
+    st.el.title = st.seat ? (heard ? "" : "Not heard right now (off screen). Turn on \"Always heard\" for this group to hear them.") : "";
+  }
 }
 
 Names.onChange(() => { Object.values(strips).forEach(labelStrip); buildGroups(); });
@@ -252,6 +263,8 @@ const applyH = () => document.documentElement.style.setProperty("--fh", $("optH"
 $("optH").onchange = () => { store.set("mixH", $("optH").value); applyH(); }; applyH();
 $("optOther").checked = store.get("mixOther") !== "0";
 $("optOther").onchange = () => { store.set("mixOther", $("optOther").checked ? "1" : "0"); showOther(); };
+
+const audioModes = AudioModes($("audioModes"), (t, d, cb) => request(t, d, cb || (() => {})), () => tally());
 
 /* ---------- OBS WebSocket (same connection logic as the Director) ---------- */
 let ws = null, ready = false, reqId = 0, retry = null, fails = 0, tryAlt = false;
@@ -289,7 +302,7 @@ function connect() {
     const msg = JSON.parse(ev.data);
     if (msg.op === 0) {
       // General (names relay) + Scenes (on-air dots) + Inputs (volume/mute changes) + InputVolumeMeters (levels)
-      const d = { rpcVersion: 1, eventSubscriptions: 1 | 4 | 8 | ($("optMeters").checked ? 65536 : 0) };
+      const d = { rpcVersion: 1, eventSubscriptions: 1 | 4 | 8 | 128 | ($("optMeters").checked ? 65536 : 0) };
       if (msg.d.authentication) {
         if (!$("pw").value) { $("settings").classList.add("open"); $("err").textContent = "OBS wants a password. Paste it above and click Connect."; }
         d.authentication = sha256b64(sha256b64($("pw").value + msg.d.authentication.salt) + msg.d.authentication.challenge);
@@ -300,6 +313,7 @@ function connect() {
       if (tryAlt) { $("host").value = host; store.set("host", host); tryAlt = false; }
       $("settings").classList.remove("open");
       loadInputs();
+      audioModes.load();
       request("GetCurrentProgramScene", {}, r => { if (r.responseData) { pgmScene = r.responseData.sceneName || r.responseData.currentProgramSceneName; tally(); } });
       request("BroadcastCustomEvent", { eventData: { type: "405th-hello" } });   // ask OBS for names
     } else if (msg.op === 7) {
@@ -313,6 +327,7 @@ function connect() {
       else if (t === "SceneNameChanged" && pgmScene === e.oldSceneName) { pgmScene = e.sceneName; tally(); }
       else if (t === "InputCreated" || t === "InputRemoved" || t === "InputNameChanged") loadInputs();
       else if (t === "CustomEvent" && e.type === "405th-state" && e.names) Names.set(e.names);
+      else if (t === "SceneItemEnableStateChanged") { audioModes.onEvent(t, e); tally(); }
     }
   };
   ws.onclose = e => {

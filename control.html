@@ -183,6 +183,7 @@
 <button id="take" title="Push Preview to Program (Numpad + anywhere, or Space/Enter while this dock is focused)">Take <small>Numpad +</small></button>
 <div class="trans" id="trans"><span class="tl">Transition</span><span id="trBtns"><i style="color:#666">connect to load…</i></span>
   <label id="vsWrap" style="display:none" title="Play the Versus stinger whenever you switch to Team A, Team B, Versus or a Duel"><input type="checkbox" id="vsTeam"><span class="pill">VS on team scenes <b id="vsState">OFF</b></span></label></div>
+<div id="audioModes" style="margin-top:6px"></div>
 <div id="grip" title="Drag to resize the monitors · double-click to hide/show them"></div>
 </div>
 <div class="row mode"><label><input type="checkbox" id="studio"> <b>Preview first</b>&nbsp;— buttons &amp; hotkeys load Preview, TAKE goes live (OBS Studio Mode)</label></div>
@@ -245,8 +246,9 @@
 <script src="assets/obs-collection.js"></script>
 <script src="assets/sha256.js"></script>
 <script src="assets/cameras.js"></script>
+<script src="assets/audiomodes.js"></script>
 <script>
-const VERSION = "v12 · stinger switch";   // shown next to the title, so you can tell which copy is loaded
+const VERSION = "v13 · audio follows picture";   // shown next to the title, so you can tell which copy is loaded
 const L = LAYOUTS, HK = OBSCollection.HOTKEYS;
 document.getElementById("ver").textContent = VERSION;
 document.getElementById("ver").title = "Loaded from " + location.href;
@@ -464,7 +466,7 @@ function connect() {
   ws.onmessage = ev => {
     const msg = JSON.parse(ev.data);
     if (msg.op === 0) {                       // Hello
-      const d = { rpcVersion: 1, eventSubscriptions: 1 | 4 | 16 | 64 | 1024 };   // General (relay) + Scenes + Transitions + Outputs (stream) + UI (Studio Mode)
+      const d = { rpcVersion: 1, eventSubscriptions: 1 | 4 | 16 | 64 | 128 | 1024 };   // General (relay) + Scenes + Transitions + Outputs (stream) + SceneItems (audio switches) + UI (Studio Mode)
       if (msg.d.authentication) {
         if (!$("pw").value) { $("settings").classList.add("open"); $("err").textContent = "OBS wants a password. Paste it above and click Connect."; }
         const { challenge, salt } = msg.d.authentication;
@@ -482,6 +484,7 @@ function connect() {
       request("GetStudioModeEnabled");
       pollStream();
       loadTransitions();
+      audioModes.load();
     } else if (msg.op === 9) {
       const cb = batchCb[msg.d.requestId]; delete batchCb[msg.d.requestId];
       cb && cb(msg.d.results || []);
@@ -499,6 +502,8 @@ function connect() {
     } else if (msg.op === 5 && msg.d.eventType === "StreamStateChanged") {
       streamState(msg.d.eventData.outputState, msg.d.eventData.outputActive);
       pollStream();
+    } else if (msg.op === 5 && msg.d.eventType === "SceneItemEnableStateChanged") {
+      audioModes.onEvent(msg.d.eventType, msg.d.eventData);
     } else if (msg.op === 5 && msg.d.eventType === "CurrentSceneTransitionChanged") {
       markTransition(msg.d.eventData.transitionName);
     } else if (msg.op === 5 && (msg.d.eventType === "SceneTransitionCreated" || msg.d.eventType === "SceneTransitionRemoved" || msg.d.eventType === "SceneTransitionNameChanged")) {
@@ -549,6 +554,8 @@ function take() {
 }
 $("take").onclick = take;
 addEventListener("scroll", () => $("pinned").classList.toggle("scrolled", scrollY > 4), { passive: true });
+// anything scrolled into view lands below the pinned block, not under it
+new ResizeObserver(() => document.documentElement.style.scrollPaddingTop = ($("pinned").offsetHeight + 8) + "px").observe($("pinned"));
 
 /* ---------- resize the pinned monitors ---------- */
 // The monitors keep 16:9; dragging sets their height, which sets the width of the pair.
@@ -587,6 +594,9 @@ function setMonHidden(on, save) {
   if (store.get("monHidden") === "1") setMonHidden(true, false);
   addEventListener("resize", () => { if (store.get("monH")) setMonH(Number(store.get("monH")), false); });
 })();
+
+/* ---------- audio switches (follow picture / everyone, host mics) ---------- */
+const audioModes = AudioModes($("audioModes"), (t, d, cb) => request(t, d, cb || (() => {})));
 
 /* ---------- transition picker ---------- */
 const VERSUS_STINGER = "405th Versus";
@@ -760,13 +770,15 @@ function showGrid(data) {
   if (gridUrl) setTimeout(((old) => () => URL.revokeObjectURL(old))(gridUrl), 1000);
   gridUrl = url;
 }
-let gridMissing = false;
+let gridMissing = false, tilesScene = L.SEATS_GRID.scene;
 function tileShot() {
   if (!gridMissing) {
     const q = Q[$("tileQ").value] || Q.med;
-    const started = snap(L.SEATS_GRID.scene, q[0], q[1], data => {
+    const started = snap(tilesScene, q[0], q[1], data => {
       if (data) showGrid(data);
-      else if ((failCount[L.SEATS_GRID.scene] || 0) > 4) {
+      else if ((failCount[tilesScene] || 0) > 4 && tilesScene !== L.SEATS_GRID.legacy) {
+        tilesScene = L.SEATS_GRID.legacy; failCount[tilesScene] = 0;        // older scene collection name
+      } else if ((failCount[tilesScene] || 0) > 4) {
         gridMissing = true;   // older scene collection: fall back to one camera at a time
         $("pickMsg").textContent = `Live tiles need the "${L.SEATS_GRID.scene}" scene. Re-import the scene collection from setup.html (showing slower tiles until then).`;
       }

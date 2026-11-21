@@ -91,7 +91,7 @@
     return s;
   }
 
-  /* opts: { root, transition, audioAll, versusOverride, cameraUrl: seat => link or "" } */
+  /* opts: { root, transition, audioMode: "follow" | "all", hostsAlways: true, versusOverride, cameraUrl: seat => link or "" } */
   function build(opts) {
     const rootDir = String(opts.root || "").replace(/\\/g, "/").replace(/\/+$/, "");
     const file = rel => rootDir + "/" + rel;
@@ -121,10 +121,16 @@
     sources.push(link);
 
     /* every camera always "on" so everyone stays audible, whatever is on screen */
+    // dock tiles (never on air)
     const allSeats = scene(L.SEATS_GRID.scene, L.SEATS.map(s => [CAM[s], { rect: L.seatCell(s) }]));
+    // always-heard cameras: hosts (if hostsAlways) and, in "all" mode, everyone. Others follow the picture.
+    const audioMode = opts.audioMode || (opts.audioAll === true ? "all" : "follow");
+    const hostsAlways = opts.hostsAlways !== false;
+    const audio = scene(L.AUDIO_SCENE, L.SEATS.map(s => [CAM[s], { rect: L.seatCell(s) },
+      !(audioMode === "all" || (hostsAlways && s.startsWith("host")))]));
     const OFF = { x: -4000, y: -4000, scale: 0.1 };   // placed off-canvas: active but never seen
 
-    const base = () => [ ...(opts.audioAll !== false ? [[allSeats, OFF]] : []) ];
+    const base = () => [[audio, OFF]];
     const tail = () => [[link, { x: -100, y: -100, scale: 1 }]];
 
     const layoutScenes = L.SCENES.map(def => {
@@ -173,7 +179,7 @@
       ...pick(["Roster", "Starting Soon", "Be Right Back", "Ending"]),
       ...pick(nm(d => d.view === "interview")),
     ];
-    const allScenes = [...order, ...[...layoutScenes, ...extraScenes].filter(x => !order.includes(x)), allSeats];
+    const allScenes = [...order, ...[...layoutScenes, ...extraScenes].filter(x => !order.includes(x)), audio, allSeats];
     sources.push(...allScenes);
 
     /* transitions: Move (plugin) slides the shared cameras between layouts; Fade / Cut are built in;

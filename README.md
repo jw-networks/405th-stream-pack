@@ -57,7 +57,8 @@ Shared things like team names and colors and the event text stay in `config.js`.
 Double-click **`setup.html`**. Check the folder path at the top (it fills itself in), then:
 - Pick the **transition**: **Move** (cameras slide and zoom between layouts; install the free
   [Move Transition plugin](https://obsproject.com/forum/resources/move.913/) first), or **Fade** / **Cut** (built in).
-- Leave **Everyone's audio always on** ticked, so people stay audible when they're off screen.
+- **Camera audio:** *Follows the picture* (only people on screen are heard) or *Everyone always on*,
+  plus **Host mics always on**. You can change these any time in the Director or Audio dock.
 - Click **Download scene collection**. You get `405th-scenes.json`, usually in Downloads.
 
 ### 5. Import it into OBS
@@ -88,6 +89,15 @@ Untick **Preview first** to go back to buttons and hotkeys cutting straight to l
 > **If `Numpad +` doesn't take:** OBS → Settings → Hotkeys → search **"Transition"** → set **Transition** (or *Quick Transition: Cut*) to `Numpad +`.
 
 > OBS's own **Preview** pane, **Multiview** and the dock's monitors all show the real picture of the queued scene.
+
+### Always heard (audio follows the picture)
+In the Director's pinned area and at the top of the Audio dock:
+**ALWAYS HEARD [Hosts] [Team A] [Team B] [All] [None]**
+- A group switched **on** (green dot) is heard all the time.
+- A group switched **off** is heard **only while on screen** in Program. For example, with Team A on screen and
+  Team B off, Players 5–8 are silent.
+- **All** = everyone always heard. **None** = pure "audio follows the picture", hosts included.
+- The Audio dock dims anyone who isn't being heard at the moment.
 
 ### Audio mixer dock (mixer.html)
 Add it like the Director: **Docks → Custom Browser Docks** → Name `Audio`, URL `file:///C:/Streams/405th-live/mixer.html`.
@@ -158,8 +168,10 @@ Change any key in **OBS → Settings → Hotkeys** (search for the scene name). 
 ### How it works
 - **10 CAM sources** (one per seat), **10 NAME sources** (nameplates) and a **FRAMES** source per layout shape
   (background, frames, team headers, bottom bar). Every scene uses the same CAM and NAME sources, placed for that layout.
-- **SEATS GRID (dock · audio · keep)** holds all 10 cameras in a grid and sits hidden off-screen in every scene. It keeps
-  all cameras live so everyone stays audible, and the Director takes one small snapshot of it to fill all 10 camera tiles.
+- **Audio follows the picture:** a camera is heard only while it's on screen in Program, unless its group is set to
+  **Always heard**. **AUDIO · always on (keep)** sits hidden off-screen in every on-air scene, and the camera items
+  switched ON inside it are always heard. The Always-heard switches in the Director and Audio dock flip those items.
+- **CAMERA TILES (dock · keep)** holds all 10 cameras in a grid. It's never on air; the Director snapshots it for the camera tiles.
   Don't delete it. Untick *Everyone's audio always on* in setup if you'd rather only hear who's on screen.
 - **405th LINK** (invisible) sends names and camera links to remote Directors, and keeps each CAM source's URL
   in sync with `config.local.js`.
