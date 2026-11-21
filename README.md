@@ -139,7 +139,10 @@ Change any key in **OBS → Settings → Hotkeys** (search for the scene name). 
 ### OBS Multiview
 **View → Multiview (Windowed)** shows Preview, Program and your scenes. Click a scene to load it into Preview,
 and double-click it to take it live. For the most shots, set **Settings → General → Multiview → Layout** to
-**"Horizontal, Top 24 Scenes"**. The scene list is ordered so the Grid, Hosts, all Spotlights, Teams and Duels come first.
+**"Horizontal, Top (24 Scenes)"**, and tick *Click to switch between scenes*.
+Multiview shows the **first 24 scenes in the scene list**: Grid, Hosts, Team A, Versus, Team B, the 4 Duels, all 10 Spotlights,
+Multi-View A/B, Roster, Starting Soon and BRB. Ending and the Interviews sit below; reach them with hotkeys or the dock.
+To change what's shown, drag scenes up or down in OBS's Scenes list.
 
 ### Custom 2-up / 3-up / 4-up
 In the dock under **Custom 2 / 3 / 4-up**, tap up to 4 seats in the order you want them, then click **Show**.

@@ -144,8 +144,23 @@
       scene("Ending", [[ending, null], ...tail()]),
     ];
 
-    // scene order: the most useful shots first, so OBS's Multiview (Top 24) shows them
-    const allScenes = [...layoutScenes, ...extraScenes, allSeats];
+    // Scene order = what OBS's Multiview shows (it shows the first 24 scenes).
+    // First 24: Grid, Hosts, Team A, Versus, Team B, 4 Duels, 10 Spotlights, Multi-View A/B, Roster, Starting Soon, BRB.
+    // After that: Ending, the 8 Interviews (hotkeys/dock still reach them), then the audio holder.
+    const byName = Object.fromEntries([...layoutScenes, ...extraScenes].map(x => [x.name, x]));
+    const pick = names => names.map(n => byName[n]).filter(Boolean);
+    const defs = L.SCENES;
+    const nm = f => defs.filter(f).map(d => d.scene);
+    const order = [
+      ...pick(["Grid", "Hosts"]),
+      ...pick([...nm(d => d.view === "team" && d.arg === "a"), ...nm(d => d.view === "versus"), ...nm(d => d.view === "team" && d.arg === "b")]),
+      ...pick(nm(d => d.view === "duel")),
+      ...pick(nm(d => d.view === "spotlight")),
+      ...pick(nm(d => d.multi)),
+      ...pick(["Roster", "Starting Soon", "Be Right Back", "Ending"]),
+      ...pick(nm(d => d.view === "interview")),
+    ];
+    const allScenes = [...order, ...[...layoutScenes, ...extraScenes].filter(x => !order.includes(x)), allSeats];
     sources.push(...allScenes);
 
     /* transitions: Move (plugin) slides the shared cameras between layouts; Fade / Cut are built in */
