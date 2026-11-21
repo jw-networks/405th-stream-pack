@@ -333,7 +333,8 @@ setTiles($("optTiles").checked);
 let ws = null, ready = false, reqId = 0, retry = null;
 function setStatus(ok, text) { $("status").textContent = text; $("status").classList.toggle("ok", ok); }
 let fails = 0, tryAlt = false;
-function cleanHost(h) { return h.trim().replace(/^wss?:\/\//i, "").replace(/\/+$/, "") || "localhost:4455"; }
+// accepts "localhost:4455", "192.168.1.50:4455", "wss://x.trycloudflare.com" or the "https://x.trycloudflare.com" cloudflared prints
+function cleanHost(h) { return h.trim().replace(/^(wss?|https?):\/\//i, "").replace(/\/+$/, "") || "localhost:4455"; }
 function connect() {
   clearTimeout(retry);
   if (ws) { ws.onclose = null; ws.close(); }
@@ -342,7 +343,9 @@ function connect() {
   let host = cleanHost(raw);
   const local = /^(localhost|127\.0\.0\.1|\[::1\])(:|$)/i.test(host);
   // wss:// if typed, or automatically when this page is https (e.g. GitHub Pages) and OBS isn't on this PC
-  const scheme = /^wss:\/\//i.test(raw) ? "wss" : /^ws:\/\//i.test(raw) ? "ws" : (location.protocol === "https:" && !local ? "wss" : "ws");
+  const scheme = /^(wss|https):\/\//i.test(raw) ? "wss" : /^(ws|http):\/\//i.test(raw) ? "ws"
+               : /\.(trycloudflare\.com|ts\.net)$/i.test(host) ? "wss"          // tunnels are always secure
+               : (location.protocol === "https:" && !local ? "wss" : "ws");
   if (scheme === "ws" && !/:\d+$/.test(host)) host += ":4455";
   // "localhost" sometimes fails on Windows; alternate with 127.0.0.1 automatically
   if (tryAlt && /^localhost:/i.test(host)) host = host.replace(/^localhost/i, "127.0.0.1");
