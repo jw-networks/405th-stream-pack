@@ -8,7 +8,8 @@
 <title>405th Control</title>
 <link rel="stylesheet" href="assets/theme.css">
 <style>
-  html, body { overflow: auto; background: var(--bg); }
+  html { overflow: auto; background: var(--bg); }
+  body { overflow: visible; }   /* must not be a scroll box, or the pinned area can't stick */
   body { padding: 10px; font-size: 14px; min-width: 240px; }
   .top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
   .top img { width: 30px; }
@@ -64,7 +65,9 @@
   #airState.live { color: #fff; background: #c62828; } #airState.live i { background: #fff; animation: blink 1.2s steps(2) infinite; }
   #airState.busy { color: #f0c060; } #airState.busy i { background: #f0a020; }
   #airState small { font-weight: 600; letter-spacing: .04em; opacity: .85; text-transform: none; font-size: 12px; margin-left: auto; }
-  .monitors { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 6px; }
+  .monitors { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }   /* always side by side, so the pinned area stays short */
+  #pinned { position: sticky; top: 0; z-index: 50; background: var(--bg); margin: -10px -10px 0; padding: 10px 10px 8px; }
+  #pinned.scrolled { box-shadow: 0 8px 14px rgba(0,0,0,.55); border-bottom: 1px solid #2a2a2a; }
   .mon .mt { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; font-weight: 800; letter-spacing: .12em;
              text-transform: uppercase; padding: 3px 6px; color: #fff; }
   .mon .mt span { font-weight: 600; letter-spacing: .03em; text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .9; }
@@ -124,6 +127,7 @@
 </style>
 </head>
 <body class="direct">
+<div id="pinned">  <!-- stays on screen while the rest scrolls -->
 <div class="top"><img src="assets/emblem.png" alt=""><b>Director <small id="ver" style="font-size:11px;color:#777;letter-spacing:.05em;font-weight:600"></small></b><span id="status" title="Click to show/hide connection settings">Offline ⚙</span></div>
 
 <div id="settings">
@@ -142,6 +146,7 @@
   <div class="mon pgm"><div class="mt">Program <span id="pgmName">—</span></div><div class="screen"><iframe id="pgmFrame" src="stage.html?schematic" title="Program"></iframe><img class="shot" id="pgmShot" alt=""></div></div>
 </div>
 <button id="take" title="Push Preview to Program (Numpad + anywhere, or Space/Enter while this dock is focused)">Take <small>Numpad +</small></button>
+</div>
 <div class="row mode"><label><input type="checkbox" id="studio"> <b>Preview first</b>&nbsp;— buttons &amp; hotkeys load Preview, TAKE goes live (OBS Studio Mode)</label></div>
 
 <h3>Cameras · click for spotlight</h3>
@@ -200,7 +205,7 @@
 <script src="assets/sha256.js"></script>
 <script src="assets/cameras.js"></script>
 <script>
-const VERSION = "v6 · go live";   // shown next to the title, so you can tell which copy is loaded
+const VERSION = "v7 · pinned monitors";   // shown next to the title, so you can tell which copy is loaded
 const L = LAYOUTS, HK = OBSCollection.HOTKEYS;
 document.getElementById("ver").textContent = VERSION;
 document.getElementById("ver").title = "Loaded from " + location.href;
@@ -492,6 +497,7 @@ function take() {
   request("TriggerStudioModeTransition");
 }
 $("take").onclick = take;
+addEventListener("scroll", () => $("pinned").classList.toggle("scrolled", scrollY > 4), { passive: true });
 
 /* ---------- stream: Go live / End stream (two clicks to confirm) ---------- */
 let streaming = false, streamBusy = false, armTimer = null;
