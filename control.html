@@ -48,6 +48,22 @@
   #settings label { font-size: 12px; color: var(--muted); }
   #settings button { padding: 6px 12px; background: var(--cyan); border: 0; font-weight: 800; cursor: pointer; }
   .msg { font-size: 12px; color: #f88; margin-top: 4px; }
+  /* stream control */
+  .onair { display: flex; align-items: stretch; gap: 6px; margin-bottom: 8px; }
+  #goLive { flex: 0 0 auto; min-width: 150px; padding: 8px 14px; border: 0; cursor: pointer; background: #2b2b2b; color: #fff;
+            font: 800 17px var(--font); font-variation-settings: "wdth" 75; letter-spacing: .12em; text-transform: uppercase; }
+  #goLive:hover { filter: brightness(1.2); }
+  #goLive.armed { background: #f0a020; color: #1a1200; animation: blink .6s steps(2) infinite; }
+  #goLive.live { background: #2b2b2b; outline: 2px solid #c62828; outline-offset: -2px; }
+  #goLive.live.armed { background: #f0a020; outline: 0; }
+  #goLive:disabled { opacity: .5; cursor: default; }
+  @keyframes blink { 50% { filter: brightness(1.25); } }
+  #airState { flex: 1; display: flex; align-items: center; gap: 10px; padding: 0 12px; background: var(--panel);
+              font: 800 16px var(--font); font-variation-settings: "wdth" 75; letter-spacing: .12em; text-transform: uppercase; color: #888; }
+  #airState i { width: 12px; height: 12px; border-radius: 50%; background: #555; flex: 0 0 auto; }
+  #airState.live { color: #fff; background: #c62828; } #airState.live i { background: #fff; animation: blink 1.2s steps(2) infinite; }
+  #airState.busy { color: #f0c060; } #airState.busy i { background: #f0a020; }
+  #airState small { font-weight: 600; letter-spacing: .04em; opacity: .85; text-transform: none; font-size: 12px; margin-left: auto; }
   .monitors { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 6px; }
   .mon .mt { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; font-weight: 800; letter-spacing: .12em;
              text-transform: uppercase; padding: 3px 6px; color: #fff; }
@@ -117,6 +133,10 @@
   <div class="msg" id="err"></div>
 </div>
 
+<div class="onair">
+  <button id="goLive" disabled title="Start / stop the stream (click twice to confirm)">Go live</button>
+  <div id="airState"><i></i><span id="airText">Off air</span><small id="airInfo"></small></div>
+</div>
 <div class="monitors">
   <div class="mon pvw"><div class="mt">Preview <span id="pvwName">—</span></div><div class="screen"><iframe id="pvwFrame" src="stage.html?schematic" title="Preview"></iframe><img class="shot" id="pvwShot" alt=""></div></div>
   <div class="mon pgm"><div class="mt">Program <span id="pgmName">—</span></div><div class="screen"><iframe id="pgmFrame" src="stage.html?schematic" title="Program"></iframe><img class="shot" id="pgmShot" alt=""></div></div>
@@ -180,7 +200,7 @@
 <script src="assets/sha256.js"></script>
 <script src="assets/cameras.js"></script>
 <script>
-const VERSION = "v5 · native scenes";   // shown next to the title, so you can tell which copy is loaded
+const VERSION = "v6 · go live";   // shown next to the title, so you can tell which copy is loaded
 const L = LAYOUTS, HK = OBSCollection.HOTKEYS;
 document.getElementById("ver").textContent = VERSION;
 document.getElementById("ver").title = "Loaded from " + location.href;
@@ -393,7 +413,7 @@ function connect() {
   ws.onmessage = ev => {
     const msg = JSON.parse(ev.data);
     if (msg.op === 0) {                       // Hello
-      const d = { rpcVersion: 1, eventSubscriptions: 1 | 4 | 1024 };   // General (relay) + Scenes + UI (Studio Mode)
+      const d = { rpcVersion: 1, eventSubscriptions: 1 | 4 | 64 | 1024 };   // General (relay) + Scenes + Outputs (stream) + UI (Studio Mode)
       if (msg.d.authentication) {
         if (!$("pw").value) { $("settings").classList.add("open"); $("err").textContent = "OBS wants a password. Paste it above and click Connect."; }
         const { challenge, salt } = msg.d.authentication;
@@ -409,6 +429,7 @@ function connect() {
       request("BroadcastCustomEvent", { eventData: { type: "405th-hello" } });   // ask the overlay for names + cameras
       request("GetCurrentProgramScene");
       request("GetStudioModeEnabled");
+      pollStream();
     } else if (msg.op === 9) {
       const cb = batchCb[msg.d.requestId]; delete batchCb[msg.d.requestId];
       cb && cb(msg.d.results || []);
@@ -423,6 +444,9 @@ function connect() {
       if (pvwScene === msg.d.eventData.oldSceneName) markPvw(msg.d.eventData.sceneName);
     } else if (msg.op === 5 && msg.d.eventType === "CurrentPreviewSceneChanged") {
       markPvw(msg.d.eventData.sceneName);
+    } else if (msg.op === 5 && msg.d.eventType === "StreamStateChanged") {
+      streamState(msg.d.eventData.outputState, msg.d.eventData.outputActive);
+      pollStream();
     } else if (msg.op === 5 && msg.d.eventType === "StudioModeStateChanged") {
       setStudio(msg.d.eventData.studioModeEnabled);
     } else if (msg.op === 7) {
@@ -438,7 +462,7 @@ function connect() {
     }
   };
   ws.onclose = e => {
-    ready = false;
+    ready = false; disarm();
     setStatus(false, e.code === 4009 ? "Bad password" : "Offline");
     if (e.code === 4009) { $("settings").classList.add("open"); $("err").textContent = "Wrong WebSocket password. Copy it again from OBS → Tools → WebSocket Server Settings → Show Connect Info."; return; }
     if (e.code >= 4000) { $("settings").classList.add("open"); $("err").textContent = `OBS refused the connection (${e.code}${e.reason ? ": " + e.reason : ""}).`; }
@@ -468,6 +492,57 @@ function take() {
   request("TriggerStudioModeTransition");
 }
 $("take").onclick = take;
+
+/* ---------- stream: Go live / End stream (two clicks to confirm) ---------- */
+let streaming = false, streamBusy = false, armTimer = null;
+function streamState(state, active) {
+  const st = String(state || "");
+  streamBusy = /STARTING|STOPPING|RECONNECTING/.test(st);
+  if (typeof active === "boolean" && !streamBusy) streaming = active;
+  if (/STARTED|RECONNECTED/.test(st)) streaming = true;
+  if (/STOPPED/.test(st)) streaming = false;
+  const text = /STARTING/.test(st) ? "Starting…" : /STOPPING/.test(st) ? "Stopping…" : /RECONNECTING/.test(st) ? "Reconnecting…"
+             : streaming ? "Live" : "Off air";
+  $("airText").textContent = text;
+  $("airState").className = streamBusy ? "busy" : streaming ? "live" : "";
+  disarm();
+}
+function disarm() {
+  clearTimeout(armTimer);
+  $("goLive").classList.remove("armed");
+  $("goLive").classList.toggle("live", streaming);
+  $("goLive").textContent = streaming ? "End stream" : "Go live";
+  $("goLive").disabled = !ready || streamBusy;
+}
+$("goLive").onclick = () => {
+  if (!ready || streamBusy) return;
+  if (!$("goLive").classList.contains("armed")) {          // first click: arm for 4 seconds
+    $("goLive").classList.add("armed");
+    $("goLive").textContent = streaming ? "Click to END" : "Click to GO LIVE";
+    clearTimeout(armTimer); armTimer = setTimeout(disarm, 4000);
+    return;
+  }
+  disarm();                                                  // second click: do it
+  request(streaming ? "StopStream" : "StartStream", {}, r => {
+    if (!r.requestStatus.result) { $("airInfo").textContent = r.requestStatus.comment || "OBS refused"; }
+    pollStream();
+  });
+};
+let streamPoll = null;
+function pollStream() {
+  clearTimeout(streamPoll);
+  if (!ready) return;
+  request("GetStreamStatus", {}, r => {
+    if (r.requestStatus.result && r.responseData) {
+      const d = r.responseData;
+      if (!streamBusy) streamState(d.outputActive ? (d.outputReconnecting ? "RECONNECTING" : "STARTED") : "STOPPED", d.outputActive);
+      const tc = (d.outputTimecode || "").replace(/\.\d+$/, "");
+      const drop = d.outputTotalFrames ? Math.round(100 * (d.outputSkippedFrames || 0) / d.outputTotalFrames) : 0;
+      $("airInfo").textContent = d.outputActive ? `${tc}${drop ? ` · ${drop}% dropped` : ""}` : "";
+    }
+    streamPoll = setTimeout(pollStream, streaming || streamBusy ? 1000 : 5000);
+  });
+}
 
 /* Real pictures from OBS.
    - Camera tiles: ONE snapshot of the "SEATS GRID" scene (all 10 cameras), cut into tiles. One request per frame.

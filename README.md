@@ -87,6 +87,13 @@ Untick **Preview first** to go back to buttons and hotkeys cutting straight to l
 
 > OBS's own **Preview** pane, **Multiview** and the dock's monitors all show the real picture of the queued scene.
 
+### Go live / End stream (in the dock)
+The bar at the top of the Director starts and stops your stream (using the stream settings already in OBS).
+- **Two clicks to confirm:** the first click arms it (the button turns amber and reads "Click to GO LIVE"), and the second click does it.
+  If you don't click again within 4 seconds, it disarms. **End stream** works the same way.
+- The status shows **Off air**, **Starting…**, **LIVE** with a running timer (plus % of dropped frames, if any), **Reconnecting…** or **Stopping…**.
+- It works from a remote Director too. Anyone with the address and password can start or stop the stream.
+
 ### The camera multiview (in the dock)
 Under the Preview/Program monitors is a tile for every seat:
 - **Click a tile** to spotlight that seat. It goes to Preview when *Preview first* is on, otherwise straight to live.
