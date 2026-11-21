@@ -79,7 +79,7 @@
         return { rects: place(seats, UP[seats.length]), bar: true, tint: true, label: "" };
       }
       default:
-        return { rects: { ...GRID }, bar: true, side: true, label: "Tonight's squad" };
+        return { rects: { ...GRID }, bar: true, side: true, label: "Tonight's fireteam" };
     }
   }
 
