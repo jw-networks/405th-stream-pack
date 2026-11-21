@@ -91,7 +91,7 @@
     return s;
   }
 
-  /* opts: { root, transition: "move" | "fade" | "cut", audioAll: true } */
+  /* opts: { root, transition, audioAll, versusOverride, cameraUrl: seat => link or "" } */
   function build(opts) {
     const rootDir = String(opts.root || "").replace(/\\/g, "/").replace(/\/+$/, "");
     const file = rel => rootDir + "/" + rel;
@@ -106,7 +106,13 @@
     const CAM = {}, NAME = {}, FR = {};
     for (const s of L.SEATS) {
       // each camera is its own source -> own mixer channel + volume
-      CAM[s] = browser("CAM · " + L.seatName(s), "presets/cam-" + s + ".html", { reroute_audio: true });
+      // Camera links load DIRECTLY in the CAM source (some web switchers don't work inside an embedded frame).
+      // Seats without a link show the local Standby page. 405th LINK keeps these in sync with config.local.js.
+      const link = typeof opts.cameraUrl === "function" ? opts.cameraUrl(s) : "";
+      CAM[s] = link
+        ? source("browser_source", "CAM · " + L.seatName(s), { is_local_file: false, url: link, width: 1920, height: 1080,
+            fps_custom: false, reroute_audio: true, restart_when_active: false, shutdown: false, webpage_control_level: 1, css: "" })
+        : browser("CAM · " + L.seatName(s), "presets/cam-" + s + ".html", { reroute_audio: true });
       NAME[s] = browser("NAME · " + L.seatName(s), "presets/name-" + s + ".html", { width: L.PLATE.w, height: L.PLATE.h });
       sources.push(CAM[s], NAME[s]);
     }

@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<!-- CAM source for one seat (native OBS setup). Used through presets/cam-<seat>.html.
-     Shows the seat's camera link from config.local.js, or a "Standby" card when there is none.
-     Change a link: edit config.local.js, then right-click the CAM source in OBS → Refresh. -->
+<!-- Standby card for a seat with no camera link (used through presets/cam-<seat>.html).
+     Seats WITH a link load that link directly in their CAM source (set by setup.html, kept in sync by 405th LINK),
+     because some web switchers won't connect from inside an embedded frame.
+     Opening this page for a seat that has a link still shows it in a frame (handy for quick tests). -->
 <html>
 <head>
 <meta charset="utf-8">

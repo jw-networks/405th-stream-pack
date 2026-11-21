@@ -7,7 +7,9 @@
 <body>
 <script src="config.js"></script>
 <script src="config.local.js" onerror="void 0"></script>
+<script src="assets/layouts.js"></script>
 <script src="assets/names.js"></script>
+<script src="assets/cameras.js"></script>
 <script src="assets/sha256.js"></script>
 <script>
 (function () {
@@ -18,6 +20,26 @@
                          dockCameraParams: C.dockCameraParams || "", teams: C.teams });
   const relay = () => { if (up) ws.send(JSON.stringify({ op: 6, d: { requestType: "BroadcastCustomEvent", requestId: "s" + (++rid), requestData: { eventData: state() } } })); };
   Names.onChange(relay);
+
+  /* Keep each "CAM · …" source pointing at its link in config.local.js:
+     a link loads directly (URL), no link shows the local Standby page. Runs when OBS starts / this source refreshes. */
+  const cbs = {};
+  const req = (type, data, cb) => { const id = "c" + (++rid); if (cb) cbs[id] = cb; ws.send(JSON.stringify({ op: 6, d: { requestType: type, requestId: id, requestData: data } })); };
+  // folder of this pack on disk, from this page's own address (OBS serves local files as http://absolute/C:/...)
+  const folder = decodeURIComponent(location.pathname).replace(/^\/(?=[A-Za-z]:)/, "").replace(/\/[^/]*$/, "");
+  function syncCams() {
+    for (const seat of LAYOUTS.SEATS) {
+      const name = "CAM · " + LAYOUTS.seatName(seat), link = cameraUrl(seat, "overlay");
+      req("GetInputSettings", { inputName: name }, r => {
+        if (!r.requestStatus.result) return;                       // no such source (older scene collection)
+        const cur = r.responseData.inputSettings || {};
+        const want = link ? { is_local_file: false, url: link }
+                          : { is_local_file: true, local_file: folder + "/presets/cam-" + seat + ".html" };
+        const same = link ? (!cur.is_local_file && cur.url === link) : (cur.is_local_file && cur.local_file === want.local_file);
+        if (!same) req("SetInputSettings", { inputName: name, inputSettings: want, overlay: true });
+      });
+    }
+  }
   const open = () => {
     let host = String(o.address).trim().replace(/^(wss?|https?):\/\//i, "").replace(/\/+$/, "");
     if (alt) host = host.replace(/^localhost/i, "127.0.0.1");
@@ -29,7 +51,8 @@
         const d = { rpcVersion: 1, eventSubscriptions: 1 };
         if (m.d.authentication) d.authentication = sha256b64(sha256b64((o.password || "") + m.d.authentication.salt) + m.d.authentication.challenge);
         ws.send(JSON.stringify({ op: 1, d }));
-      } else if (m.op === 2) { up = true; relay(); }
+      } else if (m.op === 2) { up = true; relay(); syncCams(); }
+      else if (m.op === 7 && cbs[m.d.requestId]) { const cb = cbs[m.d.requestId]; delete cbs[m.d.requestId]; cb(m.d); }
       else if (m.op === 5 && m.d.eventType === "CustomEvent" && m.d.eventData && m.d.eventData.type === "405th-hello") relay();
     };
     ws.onclose = () => { up = false; setTimeout(open, 5000); };

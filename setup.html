@@ -75,6 +75,7 @@
 <script src="config.js"></script>
 <script src="config.local.js" onerror="void 0"></script>
 <script src="assets/layouts.js"></script>
+<script src="assets/cameras.js"></script>
 <script src="assets/obs-collection.js"></script>
 <script>
   // guess the folder from this page's own location
@@ -97,6 +98,7 @@
       root: document.getElementById("root").value.trim(),
       transition: document.getElementById("tr").value,
       audioAll: document.getElementById("audioAll").checked,
+      cameraUrl: seat => cameraUrl(seat, "overlay"),
       versusOverride: document.getElementById("vsOverride").checked,
     });
     const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" });

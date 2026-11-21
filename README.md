@@ -16,7 +16,7 @@ Overlays, camera layouts, hotkeys and a director panel for a 2-host / 8-player s
 ├── control.html     ← Director dock: click-to-switch, custom 2/3/4-up, auto cycle
 ├── mixer.html       ← Audio mixer dock: per-person faders, meters, mute
 ├── names.txt        ← sample names file (your switcher can overwrite this)
-├── cam.html         ← one camera (used by the CAM · … sources)
+├── cam.html         ← Standby card for seats without a camera link
 ├── link.html        ← invisible helper that sends names + cameras to remote Directors
 ├── stage.html       ← frames/background layers (FRAMES · … sources) and the dock's layout sketches
 ├── roster.html      ← full-screen lineup board
@@ -161,7 +161,8 @@ Change any key in **OBS → Settings → Hotkeys** (search for the scene name). 
 - **SEATS GRID (dock · audio · keep)** holds all 10 cameras in a grid and sits hidden off-screen in every scene. It keeps
   all cameras live so everyone stays audible, and the Director takes one small snapshot of it to fill all 10 camera tiles.
   Don't delete it. Untick *Everyone's audio always on* in setup if you'd rather only hear who's on screen.
-- **405th LINK** (invisible) sends names and camera links to remote Directors.
+- **405th LINK** (invisible) sends names and camera links to remote Directors, and keeps each CAM source's URL
+  in sync with `config.local.js`.
 - **Transitions:** with **Move**, the same camera slides from its old spot to its new one (for example a player zooming
   from the Grid into a Spotlight). With Fade or Cut, layouts change in place.
 - **Renaming scenes:** rename them in `assets/layouts.js` first, then re-run setup. The dock and hotkeys use these names.
@@ -253,7 +254,9 @@ Send the password separately. The Director remembers both on that browser.
 - Use each guest's **view** link (`https://vdo.ninja/?view=STREAMID`), the same one you'd put in a normal OBS browser source.
 - The pack adds `&cleanoutput&cover` automatically (no VDO.Ninja buttons, video fills the frame). Change this with `cameraParams` in `config.js`.
 - Quality and bitrate options work as usual on each link, e.g. `&bitrate=4000`.
-- **Changed a link during the show?** Save `config.local.js`, then right-click that seat's **CAM · …** source → **Refresh**.
+- **Changed a link?** Save `config.local.js`, then in OBS right-click **405th LINK** → **Refresh** (or restart OBS).
+  405th LINK updates every CAM source to match. Camera links load **directly** in their CAM sources rather than
+  inside an embedded frame, because some web switchers (including switcher.avit.is) won't connect from inside a frame.
 - Each CAM source renders at 1920×1080. On a weaker PC, lower the CAM sources to 1280×720 in their properties, or add `&bitrate=2500` to VDO.Ninja links.
 
 ## Names file
