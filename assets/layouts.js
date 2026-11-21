@@ -135,7 +135,16 @@
     multi2: "view=multi&seats=p1,p2&notint", multi3: "view=multi&seats=p1,p2,p3&notint", multi4: "view=multi&seats=p1,p2,p3,p4&notint"
   };
 
-  const api = { PLATE, plateXform, framesFor, FRAMES, W, H, SEATS, GRID, UP, SIDE, TEAMS, teamOf, view, SCENES, sceneToView, seatName, multiName, multiBase };
+  /* SEATS GRID: one scene with all 10 cameras in a 4 x 3 grid (480 x 270 cells).
+     It sits hidden off-screen in every layout scene (keeps every camera live + audible), and the
+     Director grabs ONE snapshot of it to fill all 10 camera tiles. */
+  const SEATS_GRID = { scene: "SEATS GRID (dock · audio · keep)", cols: 4, cellW: 480, cellH: 270 };
+  const seatCell = seat => {
+    const i = SEATS.indexOf(seat), c = i % SEATS_GRID.cols, r = Math.floor(i / SEATS_GRID.cols);
+    return { x: c * SEATS_GRID.cellW, y: r * SEATS_GRID.cellH, w: SEATS_GRID.cellW, h: SEATS_GRID.cellH, col: c, row: r };
+  };
+
+  const api = { SEATS_GRID, seatCell, PLATE, plateXform, framesFor, FRAMES, W, H, SEATS, GRID, UP, SIDE, TEAMS, teamOf, view, SCENES, sceneToView, seatName, multiName, multiBase };
   if (typeof window !== "undefined") window.LAYOUTS = api;
   else globalThis.LAYOUTS = api;
 })();

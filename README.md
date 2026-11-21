@@ -92,9 +92,11 @@ Under the Preview/Program monitors is a tile for every seat:
 - **Click a tile** to spotlight that seat. It goes to Preview when *Preview first* is on, otherwise straight to live.
 - **Tally borders:** **red** means the seat is on screen live; **green** means it's in the shot waiting in Preview.
 - The **Preview** and **Program** monitors are real pictures from OBS.
-- **Camera tiles → from OBS** (default): OBS sends small snapshots of each CAM source. There are no extra
-  connections to your cameras and no audio comes out of the dock, and it works the same for remote operators.
-  *direct camera links* loads each camera in the dock instead (smoother, but a second connection per camera).
+- **Camera tiles → live from OBS** (default): the dock grabs **one** small picture of the *SEATS GRID* scene (all 10
+  cameras) several times a second and cuts it into the 10 tiles. There are no extra connections to your cameras, no
+  audio from the dock, and it works the same for remote operators. Use **Speed** (2–15 fps) and **Quality** to trade
+  smoothness for load. 5 fps / medium is light on OBS and fine through a tunnel. Pictures pause while the dock is hidden.
+  *direct camera links* loads each camera in the dock instead (full motion, but a second connection per camera).
 
 ### 9. Test the hotkeys
 With NumLock on: `Numpad 0` Grid, `Alt + Numpad 7` Team A, `Numpad 3` Spotlight P3, then `Numpad +` to take.
@@ -129,7 +131,8 @@ Change any key in **OBS → Settings → Hotkeys** (search for the scene name). 
 ### How it works
 - **10 CAM sources** (one per seat), **10 NAME sources** (nameplates) and a **FRAMES** source per layout shape
   (background, frames, team headers, bottom bar). Every scene uses the same CAM and NAME sources, placed for that layout.
-- **ALL SEATS (audio · keep)** sits hidden off-screen in every scene. It keeps all cameras live so everyone stays audible.
+- **SEATS GRID (dock · audio · keep)** holds all 10 cameras in a grid and sits hidden off-screen in every scene. It keeps
+  all cameras live so everyone stays audible, and the Director takes one small snapshot of it to fill all 10 camera tiles.
   Don't delete it. Untick *Everyone's audio always on* in setup if you'd rather only hear who's on screen.
 - **405th LINK** (invisible) sends names and camera links to remote Directors.
 - **Transitions:** with **Move**, the same camera slides from its old spot to its new one (for example a player zooming

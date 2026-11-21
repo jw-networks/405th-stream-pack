@@ -83,7 +83,9 @@
   button.sw.tile:hover .tl { border-color: var(--cyan); }
   .mon .shot { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
   .mon .shot.on { display: block; }
-  button.sw.tile .pic img.snap { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  /* "live from OBS": every tile shows its own cell of ONE snapshot of the SEATS GRID scene */
+  button.sw.tile .pic .snap { position: absolute; inset: 0; background-image: var(--grid, none); background-repeat: no-repeat;
+                               background-size: 400% 400%; background-color: #0d0d0d; }
   .opts select { background: #0f0f0f; color: #ddd; border: 1px solid #333; padding: 2px; font-size: 12px; }
   .mode label { display: block; line-height: 1.4; }
   .mode input { vertical-align: -2px; margin-right: 4px; }
@@ -126,9 +128,14 @@
 <div class="grid" id="cams"></div>
 <div class="opts">
   <label>Camera tiles <select id="tileMode">
-    <option value="obs">from OBS (recommended)</option>
-    <option value="direct">direct camera links</option>
+    <option value="obs">live from OBS (recommended)</option>
+    <option value="direct">direct camera links (heavier)</option>
     <option value="off">off</option></select></label>
+  <label>Speed <select id="tileFps">
+    <option value="2">2 fps</option><option value="5" selected>5 fps</option>
+    <option value="10">10 fps</option><option value="15">15 fps</option></select></label>
+  <label>Quality <select id="tileQ">
+    <option value="low">low</option><option value="med" selected>medium</option><option value="high">high</option></select></label>
   <label><input type="checkbox" id="optShot" checked> Real pictures in Preview/Program</label>
 </div>
 
@@ -231,7 +238,7 @@ function setTiles(mode) {
   if (mode === true) mode = tileMode; if (mode === false) mode = "off";
   tileMode = mode;
   for (const [s, t] of Object.entries(tiles)) {
-    let f = t.pic.querySelector("iframe"), img = t.pic.querySelector("img.snap"), none = t.pic.querySelector(".none");
+    let f = t.pic.querySelector("iframe"), img = t.pic.querySelector(".snap"), none = t.pic.querySelector(".none");
     if (mode !== "direct" && f) f.remove();
     if (mode !== "obs" && img) img.remove();
     if (mode === "direct" && t.url) {
@@ -239,7 +246,12 @@ function setTiles(mode) {
       else if (f.getAttribute("src") !== t.url) f.src = t.url;
       if (none) none.remove();
     } else if (mode === "obs") {
-      if (!img) { img = document.createElement("img"); img.className = "snap"; img.alt = ""; t.pic.prepend(img); }
+      if (!img) {
+        img = document.createElement("div"); img.className = "snap";
+        const c = L.seatCell(s);   // 4 x 4 cells of 25% each across the snapshot
+        img.style.backgroundPosition = `${c.col / 3 * 100}% ${c.row / 3 * 100}%`;
+        t.pic.prepend(img);
+      }
       if (none) none.remove();
     } else {
       if (!none) { none = document.createElement("div"); none.className = "none"; t.pic.prepend(none); }
@@ -454,21 +466,29 @@ function take() {
 }
 $("take").onclick = take;
 
-/* real pictures, grabbed from OBS: Program + Preview monitors and (in "from OBS" mode) the camera tiles.
-   One request at a time, round-robin, so it's light enough to run through a remote tunnel. */
-var shotBusy = false, shotTick = 0, tileIdx = 0, shotFails = 0;
+/* Real pictures from OBS.
+   - Camera tiles: ONE snapshot of the "SEATS GRID" scene (all 10 cameras), cut into tiles. One request per frame.
+   - Preview / Program monitors: a snapshot of each scene ~3x a second.
+   Small JPEGs, max 2 requests in flight: light on OBS and fine through a remote tunnel. */
+var shotBusy = 0, tileIdx = 0, shotFails = 0;
 const failCount = {};
+const Q = { low: [640, 40], med: [960, 55], high: [1280, 70] };
 $("optShot").checked = store.get("shot") !== "0";
 $("optShot").onchange = () => {
   store.set("shot", $("optShot").checked ? "1" : "0");
   if (!$("optShot").checked) ["pgmShot", "pvwShot"].forEach(id => $(id).classList.remove("on"));
 };
-function snap(sourceName, width, done) {
+$("tileFps").value = store.get("tileFps") || "5";
+$("tileQ").value = store.get("tileQ") || "med";
+$("tileFps").onchange = () => store.set("tileFps", $("tileFps").value);
+$("tileQ").onchange = () => store.set("tileQ", $("tileQ").value);
+
+function snap(sourceName, width, quality, done) {
   if ((failCount[sourceName] || 0) > 4) return false;
-  shotBusy = true;
-  const t = setTimeout(() => shotBusy = false, 2500);
-  request("GetSourceScreenshot", { sourceName, imageFormat: "jpg", imageWidth: width, imageCompressionQuality: 60 }, r => {
-    clearTimeout(t); shotBusy = false;
+  shotBusy++;
+  const t = setTimeout(() => shotBusy = Math.max(0, shotBusy - 1), 3000);
+  request("GetSourceScreenshot", { sourceName, imageFormat: "jpg", imageWidth: width, imageCompressionQuality: quality }, r => {
+    clearTimeout(t); shotBusy = Math.max(0, shotBusy - 1);
     const ok = r.requestStatus.result && r.responseData && r.responseData.imageData;
     failCount[sourceName] = ok ? 0 : (failCount[sourceName] || 0) + 1;
     done(ok ? r.responseData.imageData : null);
@@ -476,27 +496,57 @@ function snap(sourceName, width, done) {
   return true;
 }
 function monitorShot(imgId, scene) {
-  return snap(scene, 480, data => {
+  return snap(scene, 480, 60, data => {
     if (data && $("optShot").checked) { $(imgId).src = data; $(imgId).classList.add("on"); }
     else if (!data) $(imgId).classList.remove("on");
   });
 }
-setInterval(() => {
-  if (!ready || shotBusy) return;
-  const slot = shotTick++ % 3;
-  if (slot === 0 && $("optShot").checked && pgmScene && monitorShot("pgmShot", pgmScene)) return;
-  if (slot === 1 && $("optShot").checked && studio && pvwScene && monitorShot("pvwShot", pvwScene)) return;
-  if (tileMode === "obs") {
-    const seat = L.SEATS[tileIdx++ % L.SEATS.length];
-    const t = tiles[seat], name = "CAM · " + L.seatName(seat);
-    if (!snap(name, 320, data => {
-      const img = t.pic.querySelector("img.snap");
-      if (img && data) img.src = data;
-      if (!data && (failCount[name] || 0) > 4) { setTiles("obs"); const n = document.createElement("div"); n.className = "none"; n.textContent = "No CAM source in OBS"; t.pic.prepend(n); }
-    })) return;
+// turn a data: URL into a short blob: URL (cheaper for 10 tiles to share)
+let gridUrl = null;
+function showGrid(data) {
+  const b64 = data.slice(data.indexOf(",") + 1), bin = atob(b64), u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  const url = URL.createObjectURL(new Blob([u8], { type: "image/jpeg" }));
+  $("cams").style.setProperty("--grid", `url("${url}")`);
+  if (gridUrl) setTimeout(((old) => () => URL.revokeObjectURL(old))(gridUrl), 1000);
+  gridUrl = url;
+}
+let gridMissing = false;
+function tileShot() {
+  if (!gridMissing) {
+    const q = Q[$("tileQ").value] || Q.med;
+    const started = snap(L.SEATS_GRID.scene, q[0], q[1], data => {
+      if (data) showGrid(data);
+      else if ((failCount[L.SEATS_GRID.scene] || 0) > 4) {
+        gridMissing = true;   // older scene collection: fall back to one camera at a time
+        $("pickMsg").textContent = `Live tiles need the "${L.SEATS_GRID.scene}" scene. Re-import the scene collection from setup.html (showing slower tiles until then).`;
+      }
+    });
+    if (started) return true;
   }
-}, 110);
-// a scene renamed/changed: let its picture be retried
+  // fallback: one CAM source per request (slow)
+  const seat = L.SEATS[tileIdx++ % L.SEATS.length], name = "CAM · " + L.seatName(seat);
+  return snap(name, 320, 50, data => {
+    const el = tiles[seat].pic.querySelector(".snap");
+    if (el && data) { el.style.backgroundImage = `url("${data}")`; el.style.backgroundSize = "cover"; el.style.backgroundPosition = "center"; }
+  });
+}
+const due = { tiles: 0, pgm: 0, pvw: 0 };
+setInterval(() => {
+  if (!ready || shotBusy >= 2 || document.hidden) return;
+  const now = performance.now();
+  const jobs = [];
+  if (tileMode === "obs") jobs.push(["tiles", 1000 / (Number($("tileFps").value) || 5), tileShot]);
+  if ($("optShot").checked && pgmScene) jobs.push(["pgm", 330, () => monitorShot("pgmShot", pgmScene)]);
+  if ($("optShot").checked && studio && pvwScene) jobs.push(["pvw", 330, () => monitorShot("pvwShot", pvwScene)]);
+  // run the most overdue job
+  jobs.sort((a, b) => (due[a[0]] - now) - (due[b[0]] - now));
+  for (const [k, every, fn] of jobs) {
+    if (now < due[k]) continue;
+    due[k] = now + every;
+    if (fn()) return;
+  }
+}, 25);
 const resetShots = () => Object.keys(failCount).forEach(k => { if (!k.startsWith("CAM · ")) failCount[k] = 0; });
 $("studio").onchange = () => {
   const on = $("studio").checked;

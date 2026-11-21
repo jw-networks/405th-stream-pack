@@ -108,7 +108,7 @@
     sources.push(link);
 
     /* every camera always "on" so everyone stays audible, whatever is on screen */
-    const allSeats = scene("ALL SEATS (audio · keep)", L.SEATS.map(s => [CAM[s], { rect: { x: 0, y: 0, w: 192, h: 108 } }]));
+    const allSeats = scene(L.SEATS_GRID.scene, L.SEATS.map(s => [CAM[s], { rect: L.seatCell(s) }]));
     const OFF = { x: -4000, y: -4000, scale: 0.1 };   // placed off-canvas: active but never seen
 
     const base = () => [ ...(opts.audioAll !== false ? [[allSeats, OFF]] : []) ];
