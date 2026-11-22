@@ -20,6 +20,9 @@ Overlays, camera layouts, hotkeys and a director panel for a 2-host / 8-player s
 ├── link.html        ← invisible helper that sends names + cameras to remote Directors
 ├── stage.html       ← frames/background layers (FRAMES · … sources) and the dock's layout sketches
 ├── roster.html      ← full-screen lineup board
+├── schedule.js      ← the show rundown (Schedule scene + Up next card)
+├── schedule.html, upnext.html, sponsors.html, join.html, tech.html, extralife.html, bracket.html
+├── scoreboard.html, qa.html, chat.html   ← overlays driven by the Director / Twitch
 ├── scene.html       ← Starting Soon / Be Right Back / Ending screens
 ├── nameplate.html   ← one seat's nameplate, for use anywhere
 ├── stingers/        ← 405th stinger transitions (transparent WebM) + tools/stinger.html (their renderer)
@@ -178,6 +181,33 @@ Change any key in **OBS → Settings → Hotkeys** (search for the scene name). 
 - **Transitions:** with **Move**, the same camera slides from its old spot to its new one (for example a player zooming
   from the Grid into a Spotlight). With Fade or Cut, layouts change in place.
 - **Renaming scenes:** rename them in `assets/layouts.js` first, then re-run setup. The dock and hotkeys use these names.
+
+### Extra scenes
+All of these come with the scene collection. Most need a one-time setting, listed for each.
+
+| Scene | What it is | Set up once |
+|---|---|---|
+| **Gameplay · Teams** | Game in the middle, Team A cameras left, Team B right, scoreboard on top | Open the **GAME FEED** scene and add your game capture / capture card (fit to screen) |
+| **Gameplay · Full** | Game full screen with the scoreboard | Same GAME FEED as above |
+| **Discord Call** | Discord window + a 405th-styled who's-talking strip | 1) Properties of **Discord window** → pick the Discord window. 2) Properties of **Discord audio** → pick Discord.exe. 3) Get a voice widget link at streamkit.discord.com/overlay → *Install for OBS* → **Voice Widget** → choose server + channel → paste the URL into `config.local.js` → `discord.voiceWidget`, then re-run setup (or paste it into the **Discord voice** source's URL). |
+| **Chat / Q&A** | Both hosts + live Twitch chat | Set `twitchChannel` in `config.local.js` |
+| **Schedule** | Today's rundown; highlights LIVE NOW / UP NEXT with a countdown | Edit `schedule.js` |
+| **Sponsors** | Rotating sponsor cards (`sponsors.html?bug` = corner version) | Logos into `assets/sponsors/` (names in `config.js` → `sponsors`) |
+| **Join the 405th** | Emblem, QR code and website | Optional: `joinTitle` / `joinUrl` / `joinQr` in `config.js` |
+| **Extra Life** | Goal bar, % and recent donations | `extraLife.teamId` (or `participantId`) in `config.local.js`; updates every 30 s. Without one it shows `raised` / `goal` |
+| **Bracket** | 4- or 8-team single-elimination bracket | Fill it in from the Director |
+| **Technical Difficulties** | Emergency stand-by screen | nothing |
+
+**Up next card:** Starting Soon and Be Right Back show what's next from `schedule.js`, with a countdown.
+
+**From the Director:**
+- **Scoreboard:** *Show* on or off, a label (e.g. "Round 2 · First to 3"), −/+ per team, **Round → team** (adds a point and plays
+  the round-won banner) and Reset. It appears on Gameplay, Versus and Duel scenes.
+- **Q&A · Twitch chat:** chat scrolls in the panel. **Click a message** to put it on screen as the question card (in every
+  camera scene), and **Hide card** takes it off. This works on a remote Director too.
+- **Bracket:** title, 4 or 8 teams, then click each match's winner; winners move on automatically.
+- The scoreboard, Q&A card and bracket are saved inside OBS (in the 405th LINK source), so they survive refreshes and restarts,
+  and every Director sees the same thing.
 
 ### Stinger transitions
 Three branded stingers live in `stingers/` (transparent 1080p60 WebM):

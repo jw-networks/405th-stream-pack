@@ -49,6 +49,31 @@
   #settings label { font-size: 12px; color: var(--muted); }
   #settings button { padding: 6px 12px; background: var(--cyan); border: 0; font-weight: 800; cursor: pointer; }
   .msg { font-size: 12px; color: #f88; margin-top: 4px; }
+  /* panels: scoreboard, Q&A, bracket */
+  .panel { background: var(--panel); padding: 8px; }
+  details.panel { margin-top: 12px; } details.panel summary { cursor: pointer; font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--cyan); padding: 2px 0 6px; }
+  .srow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0; }
+  .srow input, .brteams input { flex: 1; min-width: 120px; padding: 6px; background: #0f0f0f; color: #fff; border: 1px solid #333; font-size: 13px; }
+  .pbtn { padding: 6px 10px; border: 0; cursor: pointer; background: #2b2b2b; color: #ddd; border-top: 2px solid #333;
+          font: 800 14px var(--font); font-variation-settings: "wdth" 75; letter-spacing: .06em; text-transform: uppercase; }
+  .pbtn:hover { filter: brightness(1.25); } .pbtn.on { background: var(--teal); color: #fff; border-top-color: var(--cyan); }
+  .pbtn.wide { flex: 1; } .pbtn.a { border-top-color: var(--ta); } .pbtn.b { border-top-color: var(--tb); }
+  .srow.teams { gap: 10px; } .steam { flex: 1; display: flex; align-items: center; gap: 6px; background: #1b1b1b; padding: 4px 6px; border-left: 4px solid var(--ta); }
+  .steam.b { border-left-color: var(--tb); }
+  .steam b { flex: 1; font-size: 14px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .steam .num { min-width: 34px; text-align: center; font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .hint { font-size: 11px; color: #888; }
+  .qafeat { background: #12302f; border-left: 4px solid var(--cyan); padding: 6px 8px; min-height: 34px; font-size: 13px; }
+  .qafeat b { text-transform: uppercase; margin-right: 6px; }
+  .qalist { max-height: 260px; overflow: auto; margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
+  .qam { text-align: left; background: #1b1b1b; border: 0; border-left: 3px solid transparent; color: #ddd; padding: 5px 7px; cursor: pointer; font-size: 13px; line-height: 1.25; }
+  .qam:hover { border-left-color: var(--cyan); background: #222; }
+  .qam b { margin-right: 6px; text-transform: uppercase; font-size: 12px; }
+  .brteams { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 6px 0; }
+  .brmatches { display: grid; gap: 8px; }
+  .brround h4 { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 4px 0; }
+  .brm { display: flex; gap: 4px; margin-bottom: 4px; } .brm .pbtn { flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .brm .pbtn:disabled { opacity: .4; cursor: default; }
   /* stream control */
   .onair { display: flex; align-items: stretch; gap: 6px; margin-bottom: 8px; }
   #goLive { flex: 0 0 auto; min-width: 150px; padding: 8px 14px; border: 0; cursor: pointer; background: #2b2b2b; color: #fff;
@@ -221,8 +246,44 @@
 
 <h3>Interview (player + hosts)</h3>
 <div class="grid" id="inter"></div>
+<h3>Segments</h3>
+<div class="grid" id="segments"></div>
 <h3>Screens</h3>
-<div class="grid two" id="screens"></div>
+<div class="grid" id="screens"></div>
+
+<h3>Scoreboard</h3>
+<div class="panel" id="scorePanel">
+  <div class="srow">
+    <button class="pbtn" id="scShow">Show</button>
+    <input id="scLabel" placeholder="Label, e.g. Round 3 · First to 5">
+  </div>
+  <div class="srow teams">
+    <div class="steam a"><b id="scNa">Team A</b><button class="pbtn" data-sc="a-">−</button><span class="num" id="scA">0</span><button class="pbtn" data-sc="a+">+</button></div>
+    <div class="steam b"><b id="scNb">Team B</b><button class="pbtn" data-sc="b-">−</button><span class="num" id="scB">0</span><button class="pbtn" data-sc="b+">+</button></div>
+  </div>
+  <div class="srow">
+    <button class="pbtn wide a" data-round="a">Round → <span id="scRa">Team A</span></button>
+    <button class="pbtn wide b" data-round="b">Round → <span id="scRb">Team B</span></button>
+    <button class="pbtn" id="scReset" title="Set both scores to 0">Reset</button>
+  </div>
+  <div class="hint">Shows on Gameplay, Versus and Duel scenes. "Round →" adds a point and plays the round-won banner.</div>
+</div>
+
+<h3>Q&amp;A · Twitch chat</h3>
+<div class="panel" id="qaPanel">
+  <div class="qafeat" id="qaFeat"><span class="hint">Click a chat message below to put it on screen.</span></div>
+  <div class="srow"><button class="pbtn" id="qaHide">Hide card</button><span class="hint" id="qaStatus"></span></div>
+  <div class="qalist" id="qaList"></div>
+</div>
+
+<details class="panel" id="brPanel"><summary>Bracket</summary>
+  <div class="srow"><input id="brTitle" placeholder="Title (e.g. Halo 3 Tournament)"><input id="brSub" placeholder="Subtitle"></div>
+  <div class="srow"><label class="hint">Teams <select id="brSize"><option value="8">8</option><option value="4">4</option></select></label>
+    <button class="pbtn" id="brClear">Clear winners</button></div>
+  <div class="brteams" id="brTeams"></div>
+  <div class="brmatches" id="brMatches"></div>
+  <div class="hint">Click the winner of each match; they move to the next round. Show it with Screens → Bracket.</div>
+</details>
 
 <h3>Auto director <small style="color:var(--muted);letter-spacing:.04em;text-transform:none;font-weight:600">· switches Program directly</small></h3>
 <div class="auto" id="auto">
@@ -247,8 +308,10 @@
 <script src="assets/sha256.js"></script>
 <script src="assets/cameras.js"></script>
 <script src="assets/audiomodes.js"></script>
+<script src="assets/obsstate.js"></script>
+<script src="assets/twitchchat.js"></script>
 <script>
-const VERSION = "v13 · audio follows picture";   // shown next to the title, so you can tell which copy is loaded
+const VERSION = "v14 · show extras";   // shown next to the title, so you can tell which copy is loaded
 const L = LAYOUTS, HK = OBSCollection.HOTKEYS;
 document.getElementById("ver").textContent = VERSION;
 document.getElementById("ver").title = "Loaded from " + location.href;
@@ -336,7 +399,10 @@ function setTiles(mode) {
 $("tileMode").value = tileMode;
 $("tileMode").onchange = () => { store.set("tileMode", $("tileMode").value); setTiles($("tileMode").value); };
 for (const s of L.SEATS.filter(s => s[0] === "p")) btn($("inter"), "Interview · " + L.seatName(s), "Player " + s.slice(1), s);
-[["Starting Soon","Starting"],["Be Right Back","BRB"],["Ending","Ending"],["Roster","Lineup"]].forEach(([sc, n]) =>
+[["Gameplay · Teams", "Gameplay", "Teams"], ["Gameplay · Full", "Gameplay", "Full screen"], ["Discord Call", "Community", "Discord"], ["Chat / Q&A", "Q&A", "Chat wall"]]
+  .forEach(([sc, k, n]) => btn($("segments"), sc, k).querySelector(".n").textContent = n);
+[["Starting Soon","Starting"],["Be Right Back","BRB"],["Ending","Ending"],["Roster","Lineup"],["Schedule","Schedule"],["Sponsors","Sponsors"],
+ ["Join the 405th","Join"],["Extra Life","Extra Life"],["Bracket","Bracket"],["Technical Difficulties","Tech trouble"]].forEach(([sc, n]) =>
   btn($("screens"), sc, "Screen").querySelector(".n").textContent = n);
 
 let namesKnown = false;
@@ -369,6 +435,7 @@ function applyState(d) {
     setTiles(tileMode);
   }
   if (d.names) Names.set(d.names);
+  if (d.twitchChannel && !window.PACK_CONFIG.twitchChannel) { window.PACK_CONFIG.twitchChannel = d.twitchChannel; startChat(); }
 }
 Names.start();
 paintNames();
@@ -485,6 +552,7 @@ function connect() {
       pollStream();
       loadTransitions();
       audioModes.load();
+      loadShowState();
     } else if (msg.op === 9) {
       const cb = batchCb[msg.d.requestId]; delete batchCb[msg.d.requestId];
       cb && cb(msg.d.results || []);
@@ -594,6 +662,120 @@ function setMonHidden(on, save) {
   if (store.get("monHidden") === "1") setMonHidden(true, false);
   addEventListener("resize", () => { if (store.get("monH")) setMonH(Number(store.get("monH")), false); });
 })();
+
+/* ---------- scoreboard (state stored in OBS → 405th LINK) ---------- */
+let score = { visible: false, a: 0, b: 0, label: "" };
+function paintScore() {
+  for (const t of ["a", "b"]) {
+    const nm = teamName(t);
+    $("scN" + t).textContent = nm; $("scR" + t).textContent = nm;
+    $("sc" + t.toUpperCase()).textContent = score[t] || 0;
+  }
+  $("scShow").classList.toggle("on", !!score.visible);
+  $("scShow").textContent = score.visible ? "Showing" : "Show";
+  if (document.activeElement !== $("scLabel")) $("scLabel").value = score.label || "";
+}
+function saveScore() { OBSState.write(request, "score405", score); paintScore(); }
+$("scShow").onclick = () => { score.visible = !score.visible; saveScore(); };
+$("scorePanel").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.sc) { const t = b.dataset.sc[0], d = b.dataset.sc[1] === "+" ? 1 : -1; score[t] = Math.max(0, (score[t] || 0) + d); saveScore(); }
+  if (b.dataset.round) { const t = b.dataset.round; score[t] = (score[t] || 0) + 1; score.banner = { team: t, at: Date.now() }; score.visible = true; saveScore(); }
+});
+$("scReset").onclick = () => { score.a = 0; score.b = 0; score.banner = null; saveScore(); };
+let labelT = null;
+$("scLabel").oninput = () => { clearTimeout(labelT); labelT = setTimeout(() => { score.label = $("scLabel").value; saveScore(); }, 400); };
+
+/* ---------- Q&A: Twitch chat → featured question card ---------- */
+const qaMsgs = [];
+let qaChat = null, qaShown = null;
+function startChat() {
+  const ch = window.PACK_CONFIG.twitchChannel;
+  if (qaChat || !ch) { if (!ch) $("qaStatus").textContent = "Set twitchChannel in config.js to see chat here."; return; }
+  qaChat = TwitchChat(ch, m => { qaMsgs.unshift(m); if (qaMsgs.length > 50) qaMsgs.pop(); renderQa(); },
+                      st => $("qaStatus").textContent = "twitch.tv/" + ch + " · " + st);
+}
+function renderQa() {
+  $("qaList").innerHTML = "";
+  for (const m of qaMsgs) {
+    const b = document.createElement("button"); b.className = "qam"; b.title = "Put this on screen";
+    b.innerHTML = "<b></b><span></span>";
+    b.querySelector("b").textContent = m.user; b.querySelector("b").style.color = m.color;
+    b.querySelector("span").textContent = m.text;
+    b.onclick = () => { qaShown = { shown: true, user: m.user, text: m.text, color: m.color, at: Date.now() }; OBSState.write(request, "qa405", qaShown); paintQa(); };
+    $("qaList").appendChild(b);
+  }
+}
+function paintQa() {
+  const f = $("qaFeat");
+  if (qaShown && qaShown.shown) { f.innerHTML = "<b></b><span></span>"; f.querySelector("b").textContent = qaShown.user + ":"; f.querySelector("b").style.color = qaShown.color || "#fff"; f.querySelector("span").textContent = qaShown.text; }
+  else f.innerHTML = `<span class="hint">Click a chat message below to put it on screen.</span>`;
+}
+$("qaHide").onclick = () => { qaShown = Object.assign({}, qaShown || {}, { shown: false }); OBSState.write(request, "qa405", qaShown); paintQa(); };
+startChat();
+
+/* ---------- bracket editor ---------- */
+let bracket = { title: "", subtitle: "", size: 8, teams: Array(8).fill(""), win: {} };
+const brRounds = () => Math.log2(bracket.size);
+function brTeamsOf(r, m) { return r === 0 ? [bracket.teams[m * 2] || "", bracket.teams[m * 2 + 1] || ""] : [brWinner(r - 1, m * 2), brWinner(r - 1, m * 2 + 1)]; }
+function brWinner(r, m) { const w = bracket.win[r + "-" + m]; return (w === 0 || w === 1) ? brTeamsOf(r, m)[w] : ""; }
+let brT = null;
+function saveBracket(now) { clearTimeout(brT); brT = setTimeout(() => OBSState.write(request, "bracket405", bracket), now ? 0 : 400); }
+function renderBracket() {
+  $("brSize").value = String(bracket.size);
+  if (document.activeElement !== $("brTitle")) $("brTitle").value = bracket.title || "";
+  if (document.activeElement !== $("brSub")) $("brSub").value = bracket.subtitle || "";
+  const ti = $("brTeams");
+  if (ti.children.length !== bracket.size) {
+    ti.innerHTML = "";
+    for (let i = 0; i < bracket.size; i++) {
+      const inp = document.createElement("input"); inp.placeholder = "Team " + (i + 1); inp.dataset.i = i;
+      inp.oninput = () => { bracket.teams[i] = inp.value; renderMatches(); saveBracket(); };
+      ti.appendChild(inp);
+    }
+  }
+  [...ti.children].forEach((inp, i) => { if (document.activeElement !== inp) inp.value = bracket.teams[i] || ""; });
+  renderMatches();
+}
+function renderMatches() {
+  const names = ["Quarterfinals", "Semifinals", "Final"], R = brRounds();
+  $("brMatches").innerHTML = "";
+  for (let r = 0; r < R; r++) {
+    const div = document.createElement("div"); div.className = "brround";
+    div.innerHTML = `<h4>${names[names.length - R + r]}</h4>`;
+    for (let m = 0; m < bracket.size / Math.pow(2, r + 1); m++) {
+      const row = document.createElement("div"); row.className = "brm";
+      brTeamsOf(r, m).forEach((t, k) => {
+        const b = document.createElement("button"); b.className = "pbtn" + (bracket.win[r + "-" + m] === k ? " on" : "");
+        b.textContent = t || "TBD"; b.disabled = !t;
+        b.onclick = () => {
+          const key = r + "-" + m;
+          if (bracket.win[key] === k) delete bracket.win[key]; else bracket.win[key] = k;
+          // later rounds that depended on this match need picking again
+          for (let rr = r + 1, mm = Math.floor(m / 2); rr < R; rr++, mm = Math.floor(mm / 2)) delete bracket.win[rr + "-" + mm];
+          renderMatches(); saveBracket(true);
+        };
+        row.appendChild(b);
+      });
+      div.appendChild(row);
+    }
+    $("brMatches").appendChild(div);
+  }
+}
+$("brTitle").oninput = () => { bracket.title = $("brTitle").value; saveBracket(); };
+$("brSub").oninput = () => { bracket.subtitle = $("brSub").value; saveBracket(); };
+$("brSize").onchange = () => { bracket.size = +$("brSize").value; bracket.teams = bracket.teams.concat(Array(8).fill("")).slice(0, bracket.size); bracket.win = {}; renderBracket(); saveBracket(true); };
+$("brClear").onclick = () => { bracket.win = {}; renderMatches(); saveBracket(true); };
+renderBracket();
+
+/* load the stored scoreboard / Q&A / bracket when connected */
+function loadShowState() {
+  OBSState.read(request, "score405", st => { if (st) score = Object.assign(score, st); paintScore(); });
+  OBSState.read(request, "qa405", st => { qaShown = st; paintQa(); });
+  OBSState.read(request, "bracket405", st => { if (st) { bracket = Object.assign(bracket, st); bracket.teams = (bracket.teams || []).concat(Array(8).fill("")).slice(0, bracket.size); bracket.win = bracket.win || {}; } renderBracket(); });
+}
+Names.onChange(() => paintScore());
+paintScore();
 
 /* ---------- audio switches (follow picture / everyone, host mics) ---------- */
 const audioModes = AudioModes($("audioModes"), (t, d, cb) => request(t, d, cb || (() => {})));

@@ -74,6 +74,26 @@ window.PACK_CONFIG = {
   // Set to false to hide those nameplates instead.
   genericNames: true,
 
+  // ---------- EXTRA SCENES ----------
+  // Join the 405th
+  joinTitle: "Join today",
+  joinUrl: "www.405th.com",
+  joinSubUrl: "https://405th.com/forums",
+  joinQr: "assets/join-qr.png",
+  // Sponsors: put logo files in assets/sponsors/ (transparent PNG works best). No logo = name shown in text.
+  sponsors: [
+    { name: "AVIT", logo: "assets/sponsors/avit.png", tagline: "Stream sponsor" },
+    { name: "Strafeline", logo: "assets/sponsors/strafeline.png", tagline: "Stream sponsor" }
+  ],
+  sponsorSeconds: 8,
+  // Discord Call scene: paste your StreamKit voice widget link in config.local.js
+  // (streamkit.discord.com/overlay → Install for OBS → Voice Widget → pick server + channel → copy the URL)
+  discord: { title: "Discord", subtitle: "Community call", voiceWidget: "" },
+  // Chat / Q&A: your Twitch channel name (just the name, e.g. "405thinfantry")
+  twitchChannel: "",
+  // Extra Life: your DonorDrive team ID or participant ID (from your Extra Life page URL). Leave both blank to type amounts by hand.
+  extraLife: { teamId: "", participantId: "", goal: 10000, raised: 0, title: "405th for Extra Life" },
+
   // Names used only when an overlay is opened with ?demo in the URL.
   demoNames: {
     host1: "Host 1", host2: "Host 2",
@@ -91,3 +111,6 @@ window.packLocal = function (mine) {
     C[k] = (a && b && typeof a === "object" && typeof b === "object" && !Array.isArray(b)) ? Object.assign({}, a, b) : b;
   }
 };
+
+/* schedule.js calls this with the show rundown. */
+window.packSchedule = function (sched) { window.PACK_SCHEDULE = sched; };

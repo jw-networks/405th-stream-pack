@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<!-- SCHEDULE scene: the show rundown from schedule.js, in the 405th schedule-card style.
+     Highlights what's on NOW and what's NEXT (by your PC's clock), with a countdown.
+     OBS Browser Source 1920 x 1080.  Test:  schedule.html?now=16:30  (pretend it's 4:30 PM) -->
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  body { width: 1920px; height: 1080px; position: relative; }
+  .logo { position: absolute; left: 40px; top: 26px; width: 210px; }
+  header { position: absolute; left: 0; right: 0; top: 30px; text-align: center; }
+  h1 { font-size: 92px; font-weight: 800; text-transform: uppercase; letter-spacing: .02em; line-height: 1; }
+  .next { margin-top: 12px; display: inline-flex; align-items: center; gap: 16px; font-size: 30px; }
+  .next b { color: #fff; font-weight: 800; letter-spacing: .03em; }
+  .next .cd { font-variant-numeric: tabular-nums; color: var(--cyan); }
+  main { position: absolute; left: 270px; right: 90px; top: 220px; bottom: 60px; display: grid; grid-auto-flow: column;
+         grid-template-columns: 1fr 1fr; column-gap: 56px; row-gap: 16px; }
+  .card { display: grid; grid-template-columns: 220px 1fr; grid-template-rows: 72px auto; box-shadow: 0 10px 28px rgba(0,0,0,.45);
+          opacity: 0; transform: translateY(16px); transition: opacity .5s ease, transform .6s var(--ease); position: relative; }
+  .card.in { opacity: 1; transform: none; }
+  .card .t { background: var(--teal); display: grid; place-items: center; font-size: 40px; font-weight: 800; letter-spacing: .02em; }
+  .card .ti { background: var(--panel); display: flex; align-items: center; justify-content: flex-start; padding: 0 20px;
+              font-size: 40px; font-weight: 800; text-transform: uppercase; letter-spacing: .02em; white-space: nowrap; overflow: hidden; }
+  .card .d { grid-column: 1 / -1; background: #fff; color: #111; padding: 10px 16px; font-size: 24px; font-weight: 600;
+             font-stretch: 85%; font-variation-settings: "wdth" 85; line-height: 1.2; min-height: 48px; }
+  .card.past { opacity: .45; }
+  .card.now .t { background: var(--cyan); color: #0b2630; }
+  .card.now { outline: 4px solid var(--cyan); outline-offset: 0; }
+  .card .tag { position: absolute; right: -6px; top: -14px; padding: 3px 10px; font-size: 18px; font-weight: 800; letter-spacing: .14em;
+               text-transform: uppercase; background: #e53935; color: #fff; }
+  .card.next .tag { background: var(--cyan); color: #0b2630; }
+</style>
+</head>
+<body class="hexbg">
+<img class="logo" src="assets/logo.png" alt="">
+<header><h1 id="date"></h1><div class="next label" id="nextLine"></div></header>
+<main id="list"></main>
+
+<script src="config.js"></script>
+<script src="config.local.js" onerror="void 0"></script>
+<script src="schedule.js" onerror="void 0"></script>
+<script>
+const S = window.PACK_SCHEDULE || { items: [] };
+const P = new URLSearchParams(location.search);
+const $ = id => document.getElementById(id);
+const tz = S.timezone ? " " + S.timezone : "";
+
+// "1:00 PM" / "13:00" -> minutes after midnight
+function mins(t) {
+  const m = String(t).trim().match(/^(\d{1,2})(?::(\d{2}))?\s*([ap]\.?m\.?)?$/i);
+  if (!m) return null;
+  let h = +m[1] % 12, mm = +(m[2] || 0);
+  if (m[3]) { if (/p/i.test(m[3])) h += 12; } else h = +m[1];
+  return h * 60 + mm;
+}
+function nowMins() {
+  if (P.get("now")) return mins(P.get("now"));
+  const d = new Date(); return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
+}
+const items = (S.items || []).map(it => Object.assign({}, it, { m: mins(it.time) })).filter(it => it.m != null).sort((a, b) => a.m - b.m);
+const short = t => String(t).replace(/\s*[ap]\.?m\.?$/i, "");
+
+$("date").textContent = S.date || new Date().toLocaleDateString(undefined, { month: "long", day: "numeric" });
+const list = $("list");
+list.style.gridTemplateRows = `repeat(${Math.ceil(items.length / 2)}, auto)`;
+const cards = items.map((it, i) => {
+  const c = document.createElement("div"); c.className = "card";
+  c.innerHTML = `<div class="t"></div><div class="ti"></div><div class="d"></div>`;
+  c.querySelector(".t").textContent = short(it.time) + tz;
+  c.querySelector(".ti").textContent = it.title || "";
+  c.querySelector(".d").textContent = it.desc || "";
+  list.appendChild(c);
+  // shrink long titles until they fit
+  requestAnimationFrame(() => { const ti = c.querySelector(".ti"); let fs = 40; while (fs > 22 && ti.scrollWidth > ti.clientWidth + 1) ti.style.fontSize = (--fs) + "px"; });
+  setTimeout(() => c.classList.add("in"), 150 + i * 80);
+  return c;
+});
+
+function tick() {
+  const n = nowMins();
+  let cur = -1;
+  items.forEach((it, i) => { if (it.m <= n) cur = i; });
+  const nxt = cur + 1 < items.length ? cur + 1 : -1;
+  cards.forEach((c, i) => {
+    c.classList.toggle("past", i < cur);
+    c.classList.toggle("now", i === cur);
+    c.classList.toggle("next", i === nxt);
+    let tag = c.querySelector(".tag");
+    const want = i === cur ? "Live now" : i === nxt ? "Up next" : "";
+    if (want && !tag) { tag = document.createElement("span"); tag.className = "tag"; c.appendChild(tag); }
+    if (tag) { if (want) tag.textContent = want; else tag.remove(); }
+  });
+  if (nxt >= 0) {
+    const s = Math.max(0, Math.round((items[nxt].m - n) * 60));
+    const h = Math.floor(s / 3600), mm = Math.floor(s / 60) % 60, ss = String(s % 60).padStart(2, "0");
+    $("nextLine").innerHTML = `<span>Up next</span><span class="kink"></span><b></b><span class="cd">${h ? h + ":" + String(mm).padStart(2, "0") : mm}:${ss}</span>`;
+    $("nextLine").querySelector("b").textContent = items[nxt].title;
+  } else $("nextLine").textContent = cur >= 0 ? "Thanks for watching" : "";
+}
+tick(); setInterval(tick, 1000);
+</script>
+</body>
+</html>

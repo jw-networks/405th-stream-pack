@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<!-- BRACKET: single elimination for 4 or 8 teams. Teams + winners are set in the Director and stored in OBS.
+     1920 x 1080.  Test:  bracket.html?state={"size":8,"teams":["A","B","C","D","E","F","G","H"],"win":{"0-0":0,"0-1":1}} -->
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  body { width: 1920px; height: 1080px; position: relative; }
+  .logo { position: absolute; left: 40px; top: 26px; width: 190px; }
+  header { position: absolute; left: 0; right: 0; top: 40px; text-align: center; }
+  h1 { font-size: 84px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; }
+  .sub { margin-top: 6px; display: inline-flex; align-items: center; gap: 16px; font-size: 28px; }
+  #br { position: absolute; left: 150px; right: 150px; top: 210px; bottom: 70px; }
+  svg.lines { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .m { position: absolute; width: 330px; box-shadow: 0 8px 20px rgba(0,0,0,.45); }
+  .tm { display: flex; align-items: center; height: 52px; background: var(--panel); border-left: 6px solid #333; padding: 0 14px;
+        font-size: 28px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; overflow: hidden; }
+  .tm + .tm { border-top: 1px solid #2a2a2a; }
+  .tm.win { border-left-color: var(--cyan); background: #12302f; }
+  .tm.lose { color: #666; }
+  .tm.tbd { color: #555; font-weight: 700; }
+  .rl { position: absolute; top: -34px; width: 330px; text-align: center; font-size: 20px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+  .champ { position: absolute; width: 360px; text-align: center; }
+  .champ .k { font-size: 24px; font-weight: 800; letter-spacing: .25em; color: var(--cyan); text-transform: uppercase; }
+  .champ .n { margin-top: 8px; padding: 18px 10px; background: linear-gradient(180deg, #17706d, #0e4846); border-top: 4px solid var(--cyan);
+              font-size: 46px; font-weight: 800; text-transform: uppercase; box-shadow: 0 0 40px rgba(92,203,233,.35); }
+  .champ .n.tbd { background: var(--panel); color: #555; box-shadow: none; border-top-color: #333; }
+</style>
+</head>
+<body class="hexbg">
+<img class="logo" src="assets/logo.png" alt="">
+<header><h1 id="title">Tournament</h1><div class="sub label"><span class="kink"></span><span id="subt">Bracket</span><span class="kink" style="transform:scaleX(-1)"></span></div></header>
+<div id="br"></div>
+<script src="config.js"></script>
+<script src="config.local.js" onerror="void 0"></script>
+<script src="assets/sha256.js"></script>
+<script src="assets/obsstate.js"></script>
+<script>
+/* state: { title, subtitle, size: 4|8, teams: [names], win: { "round-match": 0|1 } }  (0 = top team won) */
+const br = document.getElementById("br");
+function teamsOf(st, r, m) {               // the two teams in round r, match m
+  if (r === 0) return [st.teams[m * 2] || "", st.teams[m * 2 + 1] || ""];
+  return [winner(st, r - 1, m * 2), winner(st, r - 1, m * 2 + 1)];
+}
+function winner(st, r, m) { const w = (st.win || {})[r + "-" + m]; if (w !== 0 && w !== 1) return ""; return teamsOf(st, r, m)[w] || ""; }
+function draw(st) {
+  st = Object.assign({ size: 8, teams: [], win: {} }, st || {});
+  const size = st.size === 4 ? 4 : 8, rounds = Math.log2(size);
+  document.getElementById("title").textContent = st.title || "Tournament";
+  document.getElementById("subt").textContent = st.subtitle || "Bracket";
+  const W = br.clientWidth, H = br.clientHeight, colW = (W - 360) / rounds, mh = 105;
+  let html = "", lines = "";
+  const pos = {};
+  for (let r = 0; r < rounds; r++) {
+    const n = size / Math.pow(2, r + 1), slot = H / n;
+    const names = ["Quarterfinals", "Semifinals", "Final"]; const rname = names[names.length - rounds + r] || "Round " + (r + 1);
+    for (let m = 0; m < n; m++) {
+      const x = r * colW, y = slot * m + slot / 2 - mh / 2;
+      pos[r + "-" + m] = { x, y };
+      const [t1, t2] = teamsOf(st, r, m), w = (st.win || {})[r + "-" + m];
+      const cls = (i, t) => "tm" + (!t ? " tbd" : w === i ? " win" : (w === 0 || w === 1) ? " lose" : "");
+      const esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+      html += `<div class="m" style="left:${x}px;top:${y}px">${m === 0 ? `<div class="rl">${rname}</div>` : ""}
+        <div class="${cls(0, t1)}">${esc(t1 || "TBD")}</div><div class="${cls(1, t2)}">${esc(t2 || "TBD")}</div></div>`;
+      if (r > 0) for (const k of [0, 1]) {
+        const p = pos[(r - 1) + "-" + (m * 2 + k)], x1 = p.x + 330, y1 = p.y + mh / 2, x2 = x, y2 = y + mh / 2, xm = (x1 + x2) / 2;
+        lines += `<path d="M${x1} ${y1} H${xm} V${y2} H${x2}" fill="none" stroke="${(st.win || {})[(r - 1) + "-" + (m * 2 + k)] != null ? "#5ccbe9" : "#3a3a3a"}" stroke-width="3"/>`;
+      }
+    }
+  }
+  const fin = pos[(rounds - 1) + "-0"], champ = winner(st, rounds - 1, 0);
+  const cx = rounds * colW + 0, cy = fin.y + mh / 2 - 60;
+  lines += `<path d="M${fin.x + 330} ${fin.y + mh / 2} H${cx}" fill="none" stroke="${champ ? "#5ccbe9" : "#3a3a3a"}" stroke-width="3"/>`;
+  html += `<div class="champ" style="left:${cx}px;top:${cy}px"><div class="k">Champion</div><div class="n${champ ? "" : " tbd"}">${champ ? champ.replace(/[&<>]/g, "") : "TBD"}</div></div>`;
+  br.innerHTML = `<svg class="lines">${lines}</svg>` + html;
+}
+draw(null);
+OBSState.watch("bracket405", s => draw(s));
+</script>
+</body>
+</html>

@@ -78,6 +78,20 @@
         if (seats.length === 1) return view("spotlight", seats[0]);
         return { rects: place(seats, UP[seats.length]), bar: true, tint: true, label: "" };
       }
+      case "gameplay": {                  // arg "teams": game in the middle, Team A cams left, Team B cams right; "full": game only
+        if (arg === "full") return { rects: {}, extra: [{ x: 0, y: 0, w: W, h: H, label: "Game" }], full: true, bar: false };
+        const col = (x, seats) => Object.fromEntries(seats.map((s, i) => [s, { x, y: 136 + i * 179, w: 304, h: 171 }]));
+        return { rects: { ...col(16, TEAMS.a.seats), ...col(1600, TEAMS.b.seats) }, tint: true, bar: true, label: "Gameplay",
+                 extra: [{ x: 328, y: 136, w: 1264, h: 711, label: "Game" }] };
+      }
+      case "discord":
+        return { rects: {}, bar: true, label: (CFG.discord && CFG.discord.subtitle) || "Community call",
+                 title: (CFG.discord && CFG.discord.title) || "Discord", titleY: 36,
+                 extra: [{ x: 32, y: 110, w: 1440, h: 810, label: "Discord window" }, { x: 1496, y: 110, w: 392, h: 810, label: "Voice", panel: true }] };
+      case "chatwall":
+        return { rects: { host1: { x: 32, y: 110, w: 720, h: 405 }, host2: { x: 32, y: 531, w: 720, h: 405 } },
+                 bar: true, label: "Live chat", title: "Live chat · Q&A", titleY: 36,
+                 extra: [{ x: 784, y: 110, w: 1104, h: 826, label: "Chat", panel: true }] };
       default:
         return { rects: { ...GRID }, bar: true, side: true, label: "Tonight's fireteam" };
     }
@@ -96,6 +110,10 @@
     ...[0,1,2,3].map(i => ({ scene: `Duel · ${seatName(TEAMS.a.seats[i])} v ${seatName(TEAMS.b.seats[i])}`, view: "duel", arg: i })),
     ...SEATS.map(s => ({ scene: "Spotlight · " + seatName(s), view: "spotlight", arg: s })),
     ...P.map(s => ({ scene: "Interview · " + seatName(s), view: "interview", arg: s })),
+    { scene: "Gameplay · Teams", view: "gameplay", arg: "teams" },
+    { scene: "Gameplay · Full", view: "gameplay", arg: "full" },
+    { scene: "Discord Call", view: "discord" },
+    { scene: "Chat / Q&A", view: "chatwall" },
     { scene: "Multi-View A", view: "multi", arg: null, multi: true },
     { scene: "Multi-View B", view: "multi", arg: null, multi: true },
   ];
@@ -126,12 +144,14 @@
   /* which FRAMES source a scene uses (one per layout shape) */
   function framesFor(def) {
     if (def.view === "team") return "team-" + def.arg;
+    if (def.view === "gameplay") return "gameplay-" + def.arg;
     if (def.view === "multi") return null;              // multi scenes switch between multi2/3/4
     return def.view;                                    // grid, hosts, versus, duel, spotlight, interview
   }
   const FRAMES = {   // FRAMES source id -> overlay URL options
     grid: "view=grid", hosts: "view=hosts", "team-a": "view=team&team=a", "team-b": "view=team&team=b",
     versus: "view=versus", duel: "view=duel&n=1", spotlight: "view=spotlight&seat=p1", interview: "view=interview&seat=p1",
+    "gameplay-teams": "view=gameplay&arg=teams", "gameplay-full": "view=gameplay&arg=full", discord: "view=discord", chatwall: "view=chatwall",
     multi2: "view=multi&seats=p1,p2&notint", multi3: "view=multi&seats=p1,p2,p3&notint", multi4: "view=multi&seats=p1,p2,p3,p4&notint"
   };
 

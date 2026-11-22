@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<!-- JOIN THE 405th: emblem + tagline, QR code + website. 1920 x 1080. Text/QR from config.js (joinTitle, joinUrl, joinSubUrl, joinQr). -->
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  body { width: 1920px; height: 1080px; position: relative; }
+  .left { position: absolute; left: 0; top: 0; width: 960px; height: 1080px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 70px; }
+  .left img { width: 520px; filter: drop-shadow(0 20px 40px rgba(0,0,0,.5)); animation: float 6s ease-in-out infinite; }
+  @keyframes float { 50% { transform: translateY(-10px); } }
+  .tag { display: flex; align-items: stretch; gap: 30px; font-size: 62px; font-weight: 800; text-transform: uppercase; line-height: .98; }
+  .tag .rule { width: 3px; background: rgba(255,255,255,.85); }
+  .split { position: absolute; left: 960px; top: 70px; bottom: 70px; width: 3px; background: rgba(255,255,255,.85); transform-origin: top; animation: grow 1s var(--ease) both; }
+  @keyframes grow { from { transform: scaleY(0); } }
+  .right { position: absolute; left: 1060px; right: 80px; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; }
+  .right > * { animation: rise .9s var(--ease) both; }
+  .right > *:nth-child(2) { animation-delay: .1s; } .right > *:nth-child(3) { animation-delay: .2s; } .right > *:nth-child(4) { animation-delay: .3s; }
+  @keyframes rise { from { opacity: 0; transform: translateY(30px); } }
+  h1 { font-size: 110px; font-weight: 800; text-transform: uppercase; letter-spacing: .01em; line-height: 1; }
+  .qr { margin-top: 30px; width: 520px; height: 520px; background: #fff; padding: 22px; box-shadow: 0 16px 40px rgba(0,0,0,.5); position: relative; }
+  .qr img { width: 100%; height: 100%; image-rendering: pixelated; display: block; }
+  .qr::after { content: ""; position: absolute; inset: -10px; border: 3px solid var(--cyan); clip-path: polygon(0 0, 60px 0, 60px 3px, 3px 3px, 3px 60px, 0 60px, 0 0, 100% 100%, calc(100% - 60px) 100%, calc(100% - 60px) calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) calc(100% - 60px), 100% calc(100% - 60px), 100% 100%); }
+  .url { margin-top: 36px; font-size: 84px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+  .sub { font-size: 34px; color: #d9dfe1; letter-spacing: .02em; font-stretch: 100%; font-variation-settings: "wdth" 100; }
+</style>
+</head>
+<body class="hexbg">
+<div class="left"><img src="assets/logo.png" alt=""><div class="tag"><div id="tl"></div><div class="rule"></div><div id="tr"></div></div></div>
+<div class="split"></div>
+<div class="right">
+  <h1 id="title"></h1>
+  <div class="qr"><img id="qr" alt=""></div>
+  <div class="url" id="url"></div>
+  <div class="sub" id="sub"></div>
+</div>
+<script src="config.js"></script>
+<script src="config.local.js" onerror="void 0"></script>
+<script>
+const C = window.PACK_CONFIG, $ = id => document.getElementById(id);
+$("title").textContent = C.joinTitle || "Join today";
+$("qr").src = C.joinQr || "assets/join-qr.png";
+$("url").textContent = C.joinUrl || C.website || "";
+$("sub").textContent = C.joinSubUrl || "";
+$("tl").innerHTML = (C.taglineLeft || []).join("<br>");
+$("tr").innerHTML = (C.taglineRight || []).join("<br>");
+</script>
+</body>
+</html>

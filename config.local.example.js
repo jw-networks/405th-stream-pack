@@ -18,5 +18,11 @@ packLocal({
   obs: { address: "localhost:4455", password: "" },
 
   // Where your switcher writes names (relative to this folder, a /C:/... path, or a URL)
-  namesFile: "names.txt"
+  namesFile: "names.txt",
+
+  // Optional extras (see README → Extra scenes)
+  twitchChannel: "",                                   // for the Chat / Q&A scene + the Director's Q&A picker
+  discord: { title: "Discord", subtitle: "Community call",
+             voiceWidget: "" },                         // StreamKit voice widget link
+  extraLife: { teamId: "", participantId: "", goal: 10000, raised: 0, title: "405th for Extra Life" }
 });

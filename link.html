@@ -17,7 +17,7 @@
   if (!o.address) return;
   let ws, alt = false, up = false, rid = 0;
   const state = () => ({ type: "405th-state", names: Names.snapshot(), cameras: C.cameras || {},
-                         dockCameraParams: C.dockCameraParams || "", teams: C.teams });
+                         dockCameraParams: C.dockCameraParams || "", teams: C.teams, twitchChannel: C.twitchChannel || "" });
   const relay = () => { if (up) ws.send(JSON.stringify({ op: 6, d: { requestType: "BroadcastCustomEvent", requestId: "s" + (++rid), requestData: { eventData: state() } } })); };
   Names.onChange(relay);
 

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<!-- Q&A CARD: the featured chat question, picked in the Director. Transparent 1920 x 1080, shows bottom-center.
+     Test:  qa.html?state={"shown":true,"user":"SpartanFan","text":"What armor are you building next?","color":"#ff7f50"} -->
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  body { width: 1920px; height: 1080px; position: relative; }
+  .qa { position: absolute; left: 50%; bottom: 140px; width: 1240px; transform: translate(-50%, 40px); opacity: 0;
+        transition: transform .7s var(--ease), opacity .45s; box-shadow: 0 16px 40px rgba(0,0,0,.55); }
+  .qa.on { transform: translate(-50%, 0); opacity: 1; }
+  .tab { display: inline-flex; align-items: center; gap: 14px; height: 46px; padding: 0 52px 0 18px; background: var(--panel);
+         clip-path: polygon(0 0, calc(100% - 32px) 0, 100% 100%, 0 100%); }
+  .tab .label { font-size: 24px; }
+  .tab b { font-size: 26px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+  .body { display: flex; border-top: 4px solid var(--cyan); background: rgba(18,18,18,.96); }
+  .body .mark { flex: 0 0 110px; display: grid; place-items: center; border-right: 3px solid var(--cyan); font-size: 92px; font-weight: 800; color: var(--cyan); }
+  .body .txt { padding: 22px 30px; font-size: 44px; font-weight: 700; line-height: 1.15; font-stretch: 85%; font-variation-settings: "wdth" 85; }
+</style>
+</head>
+<body>
+<div class="qa" id="qa">
+  <div class="tab"><span class="label">Question from</span><span class="kink"></span><b id="u"></b></div>
+  <div class="body"><div class="mark">?</div><div class="txt" id="t"></div></div>
+</div>
+<script src="config.js"></script>
+<script src="config.local.js" onerror="void 0"></script>
+<script src="assets/sha256.js"></script>
+<script src="assets/obsstate.js"></script>
+<script>
+const qa = document.getElementById("qa");
+let hideT = null;
+OBSState.watch("qa405", s => {
+  if (!s || !s.shown) { qa.classList.remove("on"); return; }
+  const swap = qa.classList.contains("on");
+  const show = () => {
+    document.getElementById("u").textContent = s.user || "";
+    document.getElementById("u").style.color = s.color || "#fff";
+    const t = document.getElementById("t"); t.textContent = s.text || "";
+    t.style.fontSize = (s.text || "").length > 140 ? "34px" : (s.text || "").length > 80 ? "40px" : "44px";
+    qa.classList.add("on");
+  };
+  clearTimeout(hideT);
+  if (swap) { qa.classList.remove("on"); hideT = setTimeout(show, 450); } else show();
+});
+</script>
+</body>
+</html>

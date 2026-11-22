@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<!-- UP NEXT card (from schedule.js): what's coming up + countdown. Transparent, 1920 x 1080.
+     Sits in the bottom-right corner. Used on Starting Soon / BRB. Test: upnext.html?now=15:40 -->
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  body { width: 1920px; height: 1080px; position: relative; }
+  .un { position: absolute; right: 60px; bottom: 60px; width: 640px; box-shadow: 0 12px 30px rgba(0,0,0,.5);
+        transform: translateY(30px); opacity: 0; transition: transform .7s var(--ease), opacity .5s; }
+  .un.on { transform: none; opacity: 1; }
+  .tab { display: inline-flex; align-items: center; gap: 12px; height: 40px; padding: 0 44px 0 16px; background: var(--panel);
+         clip-path: polygon(0 0, calc(100% - 28px) 0, 100% 100%, 0 100%); font-size: 22px; }
+  .row { display: grid; grid-template-columns: 170px 1fr; height: 76px; border-top: 4px solid var(--cyan); }
+  .row .t { background: var(--teal); display: grid; place-items: center; font-size: 34px; font-weight: 800; }
+  .row .ti { background: var(--panel); display: flex; align-items: center; padding: 0 18px; font-size: 36px; font-weight: 800;
+             text-transform: uppercase; white-space: nowrap; overflow: hidden; }
+  .cd { background: #fff; color: #111; padding: 6px 16px; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div class="un" id="un">
+  <div class="tab label"><span>Up next</span><span class="kink"></span></div>
+  <div class="row"><div class="t" id="t"></div><div class="ti" id="ti"></div></div>
+  <div class="cd" id="cd"></div>
+</div>
+<script src="config.js"></script>
+<script src="config.local.js" onerror="void 0"></script>
+<script src="schedule.js" onerror="void 0"></script>
+<script>
+const S = window.PACK_SCHEDULE || { items: [] };
+const P = new URLSearchParams(location.search);
+const $ = id => document.getElementById(id);
+function mins(t) {
+  const m = String(t).trim().match(/^(\d{1,2})(?::(\d{2}))?\s*([ap]\.?m\.?)?$/i);
+  if (!m) return null;
+  let h = +m[1] % 12; if (m[3]) { if (/p/i.test(m[3])) h += 12; } else h = +m[1];
+  return h * 60 + +(m[2] || 0);
+}
+const nowMins = () => P.get("now") ? mins(P.get("now")) : (d => d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60)(new Date());
+const items = (S.items || []).map(it => Object.assign({}, it, { m: mins(it.time) })).filter(it => it.m != null).sort((a, b) => a.m - b.m);
+function tick() {
+  const n = nowMins(), nx = items.find(it => it.m > n);
+  $("un").classList.toggle("on", !!nx);
+  if (!nx) return;
+  $("t").textContent = String(nx.time).replace(/\s*[ap]\.?m\.?$/i, "") + (S.timezone ? " " + S.timezone : "");
+  $("ti").textContent = nx.title;
+  const s = Math.max(0, Math.round((nx.m - n) * 60)), h = Math.floor(s / 3600), mm = Math.floor(s / 60) % 60;
+  $("cd").textContent = "Starts in " + (h ? h + "h " + mm + "m" : mm + ":" + String(s % 60).padStart(2, "0"));
+}
+tick(); setInterval(tick, 1000);
+</script>
+</body>
+</html>

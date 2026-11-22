@@ -120,6 +120,22 @@
     const link = browser("405th LINK", "link.html", { width: 16, height: 16 });
     sources.push(link);
 
+    /* ---- extra scenes' sources ---- */
+    const C = (typeof window !== "undefined" && window.PACK_CONFIG) || {};
+    const gamePh = source("image_source", "Game placeholder", { file: file("assets/placeholders/game.png") });
+    sources.push(gamePh);
+    const gameFeed = scene("GAME FEED", [[gamePh, null]]);           // put your game capture / capture card in here
+    const discordWin = source("window_capture", "Discord window", {});            // pick the Discord window in its properties
+    const discordAudio = source("wasapi_process_output_capture", "Discord audio", {}); // pick Discord.exe in its properties
+    const dcfg = C.discord || {};
+    const discordVoice = source("browser_source", "Discord voice", { is_local_file: false, url: dcfg.voiceWidget || "",
+      width: 392, height: 810, css: (typeof window !== "undefined" && window.DISCORD_VOICE_CSS) || "", reroute_audio: false, shutdown: false });
+    const chatPanel = browser("CHAT panel", "chat.html", { width: 1104, height: 826 });
+    const scoreboard = browser("SCOREBOARD", "scoreboard.html");
+    const qaCard = browser("Q&A CARD", "qa.html");
+    const upNext = browser("UP NEXT", "upnext.html");
+    sources.push(discordWin, discordAudio, discordVoice, chatPanel, scoreboard, qaCard, upNext);   // GAME FEED is added with the scenes
+
     /* every camera always "on" so everyone stays audible, whatever is on screen */
     // dock tiles (never on air)
     const allSeats = scene(L.SEATS_GRID.scene, L.SEATS.map(s => [CAM[s], { rect: L.seatCell(s) }]));
@@ -140,14 +156,24 @@
         for (const s of L.SEATS) e.push([CAM[s], { rect: v.rects[s] || L.GRID[s] }, !v.rects[s]]);
         e.push([FR.multi2, null], [FR.multi3, null, true], [FR.multi4, null, true]);
         for (const s of L.SEATS) e.push([NAME[s], L.plateXform(v.rects[s] || L.GRID[s], false), !v.rects[s]]);
+        e.push([qaCard, null]);
         return scene(def.scene, e.concat(tail()));
       }
       const v = L.view(def.view, def.arg);
       const seats = L.SEATS.filter(s => v.rects[s]);
       const e = base();
       for (const s of seats) e.push([CAM[s], { rect: v.rects[s] }]);
+      const ex = v.extra || [];
+      // under the frames (seen through the holes): the game feed / the Discord window (+ its audio)
+      if (def.view === "gameplay") e.push([gameFeed, { rect: ex[0] }]);
+      if (def.view === "discord") e.push([discordWin, { rect: ex[0] }], [discordAudio, null]);
       e.push([FR[L.framesFor(def)], null]);
+      // on top of the frames: Discord voice strip / chat panel
+      if (def.view === "discord") e.push([discordVoice, { x: ex[1].x, y: ex[1].y, scale: 1 }]);
+      if (def.view === "chatwall") e.push([chatPanel, { x: ex[0].x, y: ex[0].y, scale: 1 }]);
       for (const s of seats) e.push([NAME[s], L.plateXform(v.rects[s], !!v.full)]);
+      if (["gameplay", "versus", "duel"].includes(def.view)) e.push([scoreboard, null]);
+      e.push([qaCard, null]);
       return scene(def.scene, e.concat(tail()));
     });
 
@@ -156,11 +182,18 @@
     const ending = browser("Ending screen", "presets/ending.html", { restart_when_active: true });
     const roster = browser("Roster board", "presets/roster.html");
     sources.push(starting, brb, ending, roster);
+    const page = (name, rel) => { const src = browser(name, rel); sources.push(src); return src; };
     const extraScenes = [
-      scene("Roster", [...base(), [roster, null], ...tail()]),
-      scene("Starting Soon", [[starting, null], ...tail()]),
-      scene("Be Right Back", [[brb, null], ...tail()]),
+      scene("Roster", [...base(), [roster, null], [qaCard, null], ...tail()]),
+      scene("Starting Soon", [[starting, null], [upNext, null], ...tail()]),
+      scene("Be Right Back", [[brb, null], [upNext, null], ...tail()]),
       scene("Ending", [[ending, null], ...tail()]),
+      scene("Schedule", [...base(), [page("Schedule screen", "schedule.html"), null], ...tail()]),
+      scene("Sponsors", [...base(), [page("Sponsors screen", "sponsors.html"), null], ...tail()]),
+      scene("Join the 405th", [...base(), [page("Join screen", "join.html"), null], ...tail()]),
+      scene("Technical Difficulties", [[page("Technical difficulties screen", "tech.html"), null], ...tail()]),
+      scene("Extra Life", [...base(), [page("Extra Life screen", "extralife.html"), null], ...tail()]),
+      scene("Bracket", [...base(), [page("Bracket screen", "bracket.html"), null], ...tail()]),
     ];
 
     // Scene order = what OBS's Multiview shows (it shows the first 24 scenes).
@@ -177,9 +210,11 @@
       ...pick(nm(d => d.view === "spotlight")),
       ...pick(nm(d => d.multi)),
       ...pick(["Roster", "Starting Soon", "Be Right Back", "Ending"]),
+      ...pick(nm(d => d.view === "gameplay" || d.view === "discord" || d.view === "chatwall")),
+      ...pick(["Schedule", "Sponsors", "Join the 405th", "Extra Life", "Bracket", "Technical Difficulties"]),
       ...pick(nm(d => d.view === "interview")),
     ];
-    const allScenes = [...order, ...[...layoutScenes, ...extraScenes].filter(x => !order.includes(x)), audio, allSeats];
+    const allScenes = [...order, ...[...layoutScenes, ...extraScenes].filter(x => !order.includes(x)), gameFeed, audio, allSeats];
     sources.push(...allScenes);
 
     /* transitions: Move (plugin) slides the shared cameras between layouts; Fade / Cut are built in;

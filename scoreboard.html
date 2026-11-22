@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<!-- SCOREBOARD overlay (top center) + "round won" banner. Controlled from the Director; the score is stored in OBS.
+     Transparent 1920 x 1080.  Test without OBS:  scoreboard.html?state={"visible":true,"a":2,"b":1,"label":"Round 4"} -->
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  body { width: 1920px; height: 1080px; position: relative; }
+  .sb { position: absolute; left: 50%; top: 22px; transform: translate(-50%, -160%); transition: transform .6s var(--ease);
+        display: flex; align-items: stretch; height: 74px; box-shadow: 0 12px 28px rgba(0,0,0,.5); }
+  .sb.on { transform: translate(-50%, 0); }
+  .side { display: flex; align-items: center; background: var(--panel); border-top: 4px solid var(--c); }
+  .side .nm { padding: 0 22px; font-size: 34px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; min-width: 250px; white-space: nowrap; }
+  .side.a .nm { text-align: right; } .side.b { flex-direction: row-reverse; }
+  .side .sc { width: 88px; align-self: stretch; display: grid; place-items: center; font-size: 54px; font-weight: 800; background: var(--c); color: #0e1a1d;
+              font-variant-numeric: tabular-nums; }
+  .side .sc.pop { animation: pop .6s var(--ease); }
+  @keyframes pop { 0% { transform: scale(1.5); filter: brightness(1.6); } }
+  .mid { width: 120px; display: grid; place-items: center; align-content: center; background: #0e0e0e; }
+  .mid img { width: 42px; }
+  .lab { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); margin-top: 6px; background: var(--panel); padding: 3px 16px;
+         font-size: 20px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--cyan); white-space: nowrap; }
+  .lab:empty { display: none; }
+  /* round-won banner */
+  .ban { position: absolute; left: 0; right: 0; top: 400px; height: 220px; display: grid; place-items: center; pointer-events: none;
+         clip-path: inset(0 100% 0 0); }
+  .ban.go { animation: ban 3.6s var(--ease) forwards; }
+  @keyframes ban { 0% { clip-path: inset(0 100% 0 0); } 12% { clip-path: inset(0 0 0 0); } 82% { clip-path: inset(0 0 0 0); } 100% { clip-path: inset(0 0 0 100%); } }
+  .ban .bg { position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(14,14,14,.94) 18%, rgba(14,14,14,.94) 82%, transparent);
+             border-top: 4px solid var(--c); border-bottom: 4px solid var(--c); }
+  .ban .txt { position: relative; text-align: center; }
+  .ban .k { font-size: 34px; font-weight: 800; letter-spacing: .3em; text-transform: uppercase; color: var(--c); }
+  .ban .w { font-size: 120px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; line-height: 1; }
+</style>
+</head>
+<body>
+<div class="sb" id="sb">
+  <div class="side a" id="sa"><div class="nm" id="na"></div><div class="sc" id="ca">0</div></div>
+  <div class="mid"><img src="assets/emblem.png" alt=""></div>
+  <div class="side b" id="sbb"><div class="nm" id="nb"></div><div class="sc" id="cb">0</div></div>
+  <div class="lab" id="lab"></div>
+</div>
+<div class="ban" id="ban"><div class="bg"></div><div class="txt"><div class="k" id="bk">Round won</div><div class="w" id="bw"></div></div></div>
+
+<script src="config.js"></script>
+<script src="config.local.js" onerror="void 0"></script>
+<script src="assets/layouts.js"></script>
+<script src="assets/names.js"></script>
+<script src="assets/sha256.js"></script>
+<script src="assets/obsstate.js"></script>
+<script>
+const L = LAYOUTS, $ = id => document.getElementById(id);
+const teamName = t => Names.get("team" + t) || L.TEAMS[t].name;
+$("sa").style.setProperty("--c", L.TEAMS.a.color); $("sbb").style.setProperty("--c", L.TEAMS.b.color);
+let st = { visible: false, a: 0, b: 0, label: "" }, lastBanner = 0, first = true;
+function paint() {
+  $("na").textContent = teamName("a"); $("nb").textContent = teamName("b");
+  for (const k of ["a", "b"]) {
+    const el = $("c" + k), v = String(st[k] || 0);
+    if (el.textContent !== v) { el.textContent = v; if (!first) { el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); } }
+  }
+  $("lab").textContent = st.label || "";
+  $("sb").classList.toggle("on", !!st.visible);
+  // banner: only for a fresh "round won" (within the last 6 s)
+  const b = st.banner;
+  if (b && b.at && b.at !== lastBanner && Date.now() - b.at < 6000 && !first) {
+    lastBanner = b.at;
+    $("ban").style.setProperty("--c", L.TEAMS[b.team] ? L.TEAMS[b.team].color : "#5ccbe9");
+    $("bk").textContent = b.text || "Round won";
+    $("bw").textContent = teamName(b.team);
+    $("ban").classList.remove("go"); void $("ban").offsetWidth; $("ban").classList.add("go");
+  } else if (b && b.at) lastBanner = b.at;
+  first = false;
+}
+Names.onChange(paint);
+OBSState.watch("score405", s => { if (s) st = s; paint(); });
+Names.start();
+paint();
+</script>
+</body>
+</html>

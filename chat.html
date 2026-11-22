@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<!-- LIVE CHAT panel for the Chat / Q&A scene. Reads Twitch chat (config.js → twitchChannel; no login needed).
+     OBS Browser Source 1104 x 826.  Test:  chat.html?demo -->
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  html, body { width: 1104px; height: 826px; }
+  .panel { position: absolute; inset: 0; background: rgba(15,15,15,.92); border-top: 4px solid var(--cyan); display: flex; flex-direction: column; }
+  .hd { display: flex; align-items: center; gap: 14px; padding: 12px 20px; border-bottom: 1px solid #2a2a2a; }
+  .hd .label { font-size: 24px; } .hd .ch { margin-left: auto; font-size: 20px; color: var(--muted); letter-spacing: .06em; }
+  .msgs { flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; padding: 10px 20px 16px; gap: 10px; }
+  .msg { font-size: 30px; line-height: 1.22; font-weight: 600; font-stretch: 90%; font-variation-settings: "wdth" 90; color: #e9eef0;
+         animation: in .45s var(--ease) both; word-wrap: break-word; }
+  @keyframes in { from { opacity: 0; transform: translateY(18px); } }
+  .msg b { font-weight: 800; margin-right: 10px; font-stretch: 75%; font-variation-settings: "wdth" 75; text-transform: uppercase; letter-spacing: .03em; }
+  .msg .md { display: inline-block; font-size: 15px; padding: 1px 6px; margin-right: 8px; vertical-align: 4px; background: var(--teal); color: #fff; font-weight: 800; letter-spacing: .1em; }
+  .empty { margin: auto; color: #666; font-size: 26px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="panel">
+  <div class="hd"><span class="label">Live chat</span><span class="kink"></span><span class="ch" id="ch"></span></div>
+  <div class="msgs" id="msgs"><div class="empty" id="empty">Waiting for chat…</div></div>
+</div>
+<script src="config.js"></script>
+<script src="config.local.js" onerror="void 0"></script>
+<script src="assets/twitchchat.js"></script>
+<script>
+const C = window.PACK_CONFIG, box = document.getElementById("msgs"), MAX = 40;
+document.getElementById("ch").textContent = C.twitchChannel ? "twitch.tv/" + C.twitchChannel : "Set twitchChannel in config.js";
+function add(m) {
+  const e = document.getElementById("empty"); if (e) e.remove();
+  const d = document.createElement("div"); d.className = "msg";
+  d.innerHTML = (m.mod ? `<span class="md">MOD</span>` : "") + `<b></b><span></span>`;
+  d.querySelector("b").textContent = m.user; d.querySelector("b").style.color = m.color || "#5ccbe9";
+  d.querySelector("span:last-child").textContent = m.text;
+  box.appendChild(d);
+  while (box.children.length > MAX) box.firstChild.remove();
+}
+if (new URLSearchParams(location.search).has("demo")) {
+  [["SpartanFan", "#ff7f50", "Hype for the costumed firefight!"], ["NobleSix", "#5ccbe9", "Is the Reclaimer mod public?"],
+   ["Kat_B320", "#b388ff", "That armor build is insane 🔥"], ["Buck", "#4caf50", "o7 405th"], ["Arbiter", "#ffd54f", "What foam do you use for the chest plate?"]]
+    .forEach(([user, color, text], i) => setTimeout(() => add({ user, color, text, mod: i === 1 }), 200 + i * 300));
+} else TwitchChat(C.twitchChannel, add);
+</script>
+</body>
+</html>

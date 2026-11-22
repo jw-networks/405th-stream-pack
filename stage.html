@@ -69,6 +69,15 @@
   #bar { transition: opacity .45s ease, transform .6s var(--ease), border-color .5s ease; }
   #side, #title, #corner, #bar, .thead, #vs { z-index: 5; }
   body.frames .plate, body.frames .slate, body.frames .vid { display: none !important; }
+  /* extra areas: game feed, Discord window, chat panel (frames mode: see-through holes with a border) */
+  .xf { position: absolute; z-index: 3; border: 2px solid rgba(92,203,233,.28); pointer-events: none; transition: opacity .3s; }
+  .xf::before, .xf::after { content: ""; position: absolute; width: 34px; height: 34px; border: 0 solid var(--cyan); top: -2px; }
+  .xf::before { left: -2px; border-top-width: 4px; border-left-width: 4px; }
+  .xf::after { right: -2px; border-top-width: 4px; border-right-width: 4px; }
+  .xf.full { border: 0; } .xf.full::before, .xf.full::after { display: none; }
+  .xf b { display: none; position: absolute; inset: 0; place-items: center; font-size: 60px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #cfe9f1; }
+  body.schematic .xf { background: #232a2d; } body.schematic .xf b, body.showguide .xf b { display: grid; }
+  body:not(.frames):not(.schematic) .xf { background: #0d0d0d; } body:not(.frames):not(.schematic) .xf b { display: grid; color: #555; }
   body.schematic .slate { background-color: #232a2d; }
   body.schematic .slate img { display: none; }
   body.schematic .slate .label { font-size: 64px; font-weight: 800; color: #cfe9f1; letter-spacing: .04em; }
@@ -113,6 +122,7 @@
 <div id="headA" class="thead fade hide"><span class="bar2"></span><b></b><span class="rule"></span></div>
 <div id="headB" class="thead r fade hide"><span class="bar2"></span><b></b><span class="rule"></span></div>
 <div id="vs" class="fade hide"><b>VS</b></div>
+<div id="extras"></div>
 <div id="other"><span>Full-screen scene</span><b id="otherName"></b></div>
 <img id="corner" class="fade hide" src="assets/emblem.png" alt="">
 <div id="bar" class="hexpanel fade">
@@ -201,6 +211,7 @@ function draw(t) {
     // all-in-one mode draws the cameras itself; FRAMES mode cuts holes for OBS's CAM sources
     if (FRAMES && r.w > 1 && r.h > 1) holes.push(`<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}"/>`);
   }
+  if (FRAMES) for (const x of curExtra) if (!x.panel) holes.push(`<rect x="${x.x}" y="${x.y}" width="${x.w}" height="${x.h}"/>`);
   $("holes").innerHTML = holes.join("");
 }
 
@@ -210,7 +221,7 @@ function frame(now) {
   if (t < 1) requestAnimationFrame(frame); else animating = false;
 }
 
-let currentKey = "", currentView = null, currentArg = null;
+let currentKey = "", currentView = null, currentArg = null, curExtra = [];
 const teamName = t => Names.get("team" + t) || L.TEAMS[t].name;
 document.documentElement.style.setProperty("--ta", L.TEAMS.a.color);
 document.documentElement.style.setProperty("--tb", L.TEAMS.b.color);
@@ -264,6 +275,9 @@ function setView(name, arg, instant) {
   $("corner").classList.toggle("hide", !v.full);
   $("titleText").textContent = v.title || "";
   $("title").classList.toggle("hide", !v.title);
+  $("title").style.top = (v.titleY != null ? v.titleY : 92) + "px";
+  curExtra = v.extra || [];
+  $("extras").innerHTML = curExtra.map(x => `<div class="xf${x.w >= 1900 ? " full" : ""}" style="left:${x.x}px;top:${x.y}px;width:${x.w}px;height:${x.h}px"><b>${x.label || ""}</b></div>`).join("");
   refreshText(v);
   setTimeout(() => L.SEATS.forEach(s => { const n = cams[s].plate.querySelector(".name"); const px = parseFloat(cams[s].plate.style.fontSize) * 2.2; fitText(n, px, px * .5); }), DUR);
   if (instant) { draw(1); return; }
@@ -346,7 +360,7 @@ window.addEventListener("message", e => {
   else setView(m.view, m.arg, d.instant);
 });
 
-if (SCHEMATIC) {
+if (SCHEMATIC && !P.get("view")) {
   setView("grid", null, true);
 } else if (P.get("view")) {
   const v = P.get("view");
@@ -354,6 +368,7 @@ if (SCHEMATIC) {
   if (v === "team") arg = P.get("team") || "a";
   if (v === "duel") arg = Number(P.get("n") || 1) - 1;
   if (v === "multi") arg = (P.get("seats") || "p1,p2").split(",").map(Names.seatKey);
+  if (v === "gameplay") arg = P.get("arg") || "teams";
   setView(v, arg, true);
 } else {
   setView("grid", null, true);

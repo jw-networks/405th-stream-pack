@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<!-- SPONSORS: rotates through config.js → sponsors.  1920 x 1080.
+     Full screen by default;  sponsors.html?bug  = small rotating card in the top-right corner (transparent). -->
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  body { width: 1920px; height: 1080px; position: relative; }
+  /* full screen */
+  .logo405 { position: absolute; left: 40px; top: 26px; width: 210px; }
+  header { position: absolute; left: 0; right: 0; top: 70px; text-align: center; }
+  header h1 { font-size: 84px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; }
+  header .label { font-size: 30px; display: inline-flex; gap: 16px; align-items: center; margin-top: 8px; }
+  .stage { position: absolute; left: 360px; right: 360px; top: 280px; height: 600px; }
+  .card { position: absolute; inset: 0; display: grid; grid-template-rows: 1fr auto; background: #fff; box-shadow: 0 18px 40px rgba(0,0,0,.5);
+          border-top: 6px solid var(--cyan); opacity: 0; transform: translateX(80px); transition: opacity .6s ease, transform .8s var(--ease); }
+  .card.on { opacity: 1; transform: none; }
+  .card.off { opacity: 0; transform: translateX(-80px); }
+  .card .lg { display: grid; place-items: center; padding: 50px; min-height: 0; }
+  .card .lg img { max-width: 100%; max-height: 380px; object-fit: contain; }
+  .card .lg .txt { font-size: 140px; font-weight: 800; color: #111; text-transform: uppercase; letter-spacing: .02em; }
+  .card .cap { background: var(--panel); display: flex; align-items: center; gap: 18px; padding: 16px 26px; }
+  .card .cap b { font-size: 40px; font-weight: 800; text-transform: uppercase; }
+  .card .cap span { font-size: 26px; }
+  .dots { position: absolute; left: 0; right: 0; top: 910px; display: flex; justify-content: center; gap: 12px; }
+  .dots i { width: 34px; height: 6px; background: #444; transition: background .4s; }
+  .dots i.on { background: var(--cyan); }
+  /* corner bug */
+  body.bug { background: transparent !important; }
+  body.bug .logo405, body.bug header, body.bug .dots { display: none; }
+  body.bug .stage { left: auto; right: 40px; top: 40px; width: 380px; height: 230px; }
+  body.bug .card .lg { padding: 18px; } body.bug .card .lg img { max-height: 130px; } body.bug .card .lg .txt { font-size: 56px; }
+  body.bug .card .cap { padding: 6px 12px; gap: 10px; } body.bug .card .cap b { font-size: 20px; } body.bug .card .cap span { font-size: 14px; }
+</style>
+</head>
+<body class="hexbg">
+<img class="logo405" src="assets/logo.png" alt="">
+<header><h1>Stream sponsors</h1><div class="label"><span class="kink"></span><span>Thank you for supporting the 405th</span><span class="kink" style="transform:scaleX(-1)"></span></div></header>
+<div class="stage" id="stage"></div>
+<div class="dots" id="dots"></div>
+<script src="config.js"></script>
+<script src="config.local.js" onerror="void 0"></script>
+<script>
+const C = window.PACK_CONFIG, P = new URLSearchParams(location.search);
+if (P.has("bug")) document.body.classList.add("bug");
+const sp = (C.sponsors || []).filter(s => s && s.name);
+const stage = document.getElementById("stage"), dots = document.getElementById("dots");
+const cards = sp.map(s => {
+  const c = document.createElement("div"); c.className = "card";
+  c.innerHTML = `<div class="lg"></div><div class="cap"><span class="kink"></span><b></b><span class="label"></span></div>`;
+  const lg = c.querySelector(".lg");
+  const fallback = () => { lg.innerHTML = `<div class="txt"></div>`; lg.querySelector(".txt").textContent = s.name; };
+  if (s.logo) { const im = new Image(); im.onload = () => { lg.innerHTML = ""; lg.appendChild(im); }; im.onerror = fallback; im.src = s.logo; } else fallback();
+  c.querySelector("b").textContent = s.name;
+  c.querySelector(".cap .label").textContent = s.tagline || "";
+  stage.appendChild(c);
+  const d = document.createElement("i"); dots.appendChild(d);
+  return { c, d };
+});
+let i = -1;
+function next() {
+  if (!cards.length) return;
+  if (i >= 0) { cards[i].c.classList.remove("on"); cards[i].c.classList.add("off"); cards[i].d.classList.remove("on"); }
+  const prev = i; i = (i + 1) % cards.length;
+  setTimeout(() => { if (prev >= 0 && prev !== i) cards[prev].c.classList.remove("off"); }, 900);
+  cards[i].c.classList.remove("off"); cards[i].c.classList.add("on"); cards[i].d.classList.add("on");
+}
+next(); setInterval(next, (C.sponsorSeconds || 8) * 1000);
+</script>
+</body>
+</html>

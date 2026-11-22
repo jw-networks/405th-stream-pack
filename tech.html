@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<!-- TECHNICAL DIFFICULTIES / STAND BY. 1920 x 1080.  tech.html?title=…&sub=…  to change the words. -->
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  body { width: 1920px; height: 1080px; position: relative; overflow: hidden; }
+  .scan { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 2px, transparent 2px 5px); pointer-events: none; }
+  .bar { position: absolute; left: 0; right: 0; height: 140px; background: linear-gradient(transparent, rgba(92,203,233,.08), transparent);
+         animation: sweep 4s linear infinite; }
+  @keyframes sweep { from { top: -160px; } to { top: 1100px; } }
+  .wrap { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 34px; text-align: center; }
+  .em { width: 300px; animation: glitch 3.2s steps(1) infinite; filter: drop-shadow(0 0 30px rgba(92,203,233,.35)); }
+  @keyframes glitch { 0%, 92%, 100% { transform: none; opacity: 1; } 93% { transform: translateX(-12px) skewX(8deg); opacity: .7; }
+                      95% { transform: translateX(10px); opacity: .9; } 97% { transform: translateX(-4px) skewX(-6deg); } }
+  .stripe { display: flex; align-items: stretch; height: 120px; box-shadow: 0 14px 34px rgba(0,0,0,.5); }
+  .stripe .warn { width: 120px; background: repeating-linear-gradient(-45deg, #f0a020 0 18px, #1a1200 18px 36px); }
+  .stripe h1 { background: var(--panel); display: grid; place-items: center; padding: 0 44px; font-size: 92px; font-weight: 800;
+               text-transform: uppercase; letter-spacing: .03em; border-top: 5px solid #f0a020; }
+  .sub { font-size: 40px; color: #d9dfe1; text-transform: uppercase; letter-spacing: .12em; font-weight: 700; }
+  .dots i { display: inline-block; width: 14px; height: 14px; margin: 0 6px; background: var(--cyan); animation: blink 1.2s infinite; }
+  .dots i:nth-child(2) { animation-delay: .2s; } .dots i:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 50% { opacity: .2; } }
+</style>
+</head>
+<body class="hexbg">
+<div class="bar"></div>
+<div class="wrap">
+  <img class="em" src="assets/emblem.png" alt="">
+  <div class="stripe"><div class="warn"></div><h1 id="t">Technical difficulties</h1><div class="warn"></div></div>
+  <div class="sub" id="s">Stand by · we'll be right back</div>
+  <div class="dots"><i></i><i></i><i></i></div>
+</div>
+<div class="scan"></div>
+<script>
+  const P = new URLSearchParams(location.search);
+  if (P.get("title")) document.getElementById("t").textContent = P.get("title");
+  if (P.get("sub")) document.getElementById("s").textContent = P.get("sub");
+</script>
+</body>
+</html>
