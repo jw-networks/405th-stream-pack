@@ -6,7 +6,7 @@
 window.AudioModes = function (mount, request, onChange) {
   const L = window.LAYOUTS;
   const GROUPS = [
-    { key: "hosts", label: "Hosts", seats: L.SEATS.filter(s => s.startsWith("host")) },
+    { key: "hosts", label: "Hosts", get seats() { return L.SEATS.filter(s => s.startsWith("host") && (!L.seatActive || L.seatActive(s))); } },
     { key: "a", label: (L.TEAMS.a && L.TEAMS.a.name) || "Team A", seats: L.TEAMS.a.seats, color: L.TEAMS.a.color },
     { key: "b", label: (L.TEAMS.b && L.TEAMS.b.name) || "Team B", seats: L.TEAMS.b.seats, color: L.TEAMS.b.color },
   ];
@@ -68,10 +68,11 @@ window.AudioModes = function (mount, request, onChange) {
   mount.addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b || !Object.keys(items).length) return;
     if (b.dataset.g) { const g = GROUPS.find(x => x.key === b.dataset.g); set(g.seats, !groupOn(g)); }
-    if (b.dataset.q) set(L.SEATS, b.dataset.q === "all");
+    if (b.dataset.q) set(L.SEATS.filter(s => b.dataset.q !== "all" || !L.seatActive || L.seatActive(s)), b.dataset.q === "all");
   });
   return {
     load,
+    setSeats: set,                                          // set(seats, on): used by the Director's 1 / 2 hosts switch
     always: seat => !!(items[seat] && items[seat].on),     // is this seat heard even when off screen?
     known: () => Object.keys(items).length > 0,
     // feed OBS events (subscribe to SceneItems = 128) so several docks stay in sync

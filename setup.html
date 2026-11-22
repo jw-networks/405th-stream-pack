@@ -49,6 +49,12 @@
     <label class="check"><input type="checkbox" id="vsOverride">
       <span>Play the <b>405th Versus</b> stinger whenever you switch to Team A, Team B, Versus or a Duel (you can also turn this on/off any time in the Director). All three stingers are added to OBS either way.</span></label>
     <div class="note">Move plugin: <a href="https://obsproject.com/forum/resources/move.913/" target="_blank">obsproject.com/forum/resources/move.913</a>. Install it before importing if you pick Move.</div>
+    <label for="hosts">Hosts</label>
+    <select id="hosts" style="padding:10px;font-size:16px;background:#0f0f0f;color:#fff;border:1px solid #333">
+      <option value="2">2 hosts</option>
+      <option value="1">1 host</option>
+    </select>
+    <div class="note">Starting point only. Switch between 1 and 2 hosts any time in the Director (Layouts → Hosts).</div>
     <label for="audioMode">Camera audio</label>
     <select id="audioMode" style="padding:10px;font-size:16px;background:#0f0f0f;color:#fff;border:1px solid #333">
       <option value="follow" selected>Follows the picture: only people on screen are heard (recommended)</option>
@@ -101,12 +107,14 @@
     `<tr><td>${k || OBSCollection.pretty(OBSCollection.HOTKEYS[scene])}</td><td>${scene}</td></tr>`).join("");
   // In Studio Mode, the scene keys load Preview and Numpad + takes it live.
 
+  document.getElementById("hosts").value = String(LAYOUTS.hostCount());
   document.getElementById("go").onclick = () => {
     const json = OBSCollection.build({
       root: document.getElementById("root").value.trim(),
       transition: document.getElementById("tr").value,
       audioMode: document.getElementById("audioMode").value,
       hostsAlways: document.getElementById("hostsAlways").checked,
+      hosts: Number(document.getElementById("hosts").value),
       cameraUrl: seat => cameraUrl(seat, "overlay"),
       versusOverride: document.getElementById("vsOverride").checked,
     });

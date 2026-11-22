@@ -241,6 +241,14 @@ Multiview shows the **first 24 scenes in the scene list**: Grid, Hosts, Team A, 
 Multi-View A/B, Roster, Starting Soon and BRB. Ending and the Interviews sit below; reach them with hotkeys or the dock.
 To change what's shown, drag scenes up or down in OBS's Scenes list.
 
+### 1 or 2 hosts
+The **Hosts 1 | 2** switch next to the Director's *Layouts* heading sets how many hosts are on tonight. With 1 host:
+- **Grid, Hosts, every Interview and Chat / Q&A** re-centre Host 1 and hide Host 2 (cameras, nameplates and frames all follow).
+- **The Roster** shows a single host card.
+- **Host 2 drops out of the audio** ("Always heard" and the Audio mixer dock), and their tile, custom-picker chip and auto-cycle shots disappear.
+
+Switching back to 2 restores everything. The choice is saved in OBS, so every dock and overlay agrees after a refresh. Pick the starting value in `setup.html` (or `hosts: 1` in `config.local.js`). Collections imported before this feature need one re-import so Host 2 can be brought back.
+
 ### Custom 2-up / 3-up / 4-up
 In the dock under **Custom 2 / 3 / 4-up**, tap up to 4 seats in the order you want them, then click **Show**.
 2 seats sit side by side, 3 seats are two on top and one below, and 4 seats are 2×2. 1 seat goes to that seat's Spotlight.

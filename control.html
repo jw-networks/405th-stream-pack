@@ -104,6 +104,12 @@
          font: 800 13px var(--font); font-variation-settings: "wdth" 75; letter-spacing: .06em; text-transform: uppercase; }
   .trb:hover { border-top-color: var(--cyan); }
   .trb.on { background: var(--teal); color: #fff; border-top-color: var(--cyan); }
+  /* 1 / 2 hosts switch (next to the Layouts heading) */
+  .hostsw { float: right; display: inline-flex; align-items: center; gap: 4px; font-size: 11px; letter-spacing: .12em; color: var(--muted); }
+  .hostsw button { min-width: 30px; padding: 3px 8px; border: 0; cursor: pointer; background: #262626; color: #ddd; border-top: 2px solid #333;
+                   font: 800 13px var(--font); font-variation-settings: "wdth" 75; letter-spacing: .06em; }
+  .hostsw button.on { background: var(--teal); color: #fff; border-top-color: var(--cyan); }
+  .hostsw button:hover { border-top-color: var(--cyan); }
   .trb.stg { box-shadow: inset 0 -2px 0 rgba(92,203,233,.45); }
   #vsWrap { margin-left: auto; cursor: pointer; }
   #vsWrap input { display: none; }
@@ -136,8 +142,11 @@
   /* camera block: hosts stacked on the left, Team A (P1–P4) on top row, Team B (P5–P8) on bottom row */
   #cams { grid-template-columns: 1fr 6px repeat(4, 1fr); gap: 5px;
           grid-template-areas: "host1 . p1 p2 p3 p4" "host2 . p5 p6 p7 p8"; }
+  #cams.solo { grid-template-areas: "host1 . p1 p2 p3 p4" "host1 . p5 p6 p7 p8"; }
+  .gone { display: none !important; }
   @media (max-width: 560px) {   /* narrow dock: hosts in their own row above the players */
     #cams { grid-template-columns: repeat(4, 1fr); grid-template-areas: "host1 host1 host2 host2" "p1 p2 p3 p4" "p5 p6 p7 p8"; }
+    #cams.solo { grid-template-areas: ". host1 host1 ." "p1 p2 p3 p4" "p5 p6 p7 p8"; }
   }
   button.sw.tile .cap { padding: 12px 6px 4px; }
   button.sw.tile .cap .k { font-size: 9px; letter-spacing: .12em; }
@@ -231,7 +240,8 @@
     <option value="24">24 fps</option><option value="30">30 fps</option></select></label>
 </div>
 
-<h3>Layouts</h3>
+<h3>Layouts <span class="hostsw" id="hostSw" title="How many hosts tonight. Re-places the host cameras in Grid, Hosts, Interviews and Chat / Q&amp;A, and mutes the unused host mic.">HOSTS <button data-h="1">1</button><button data-h="2">2</button></span></h3>
+<div class="msg" id="hostMsg"></div>
 <div class="grid two" id="layouts"></div>
 <h3>Teams</h3>
 <div class="grid" id="teams"></div>
@@ -311,7 +321,7 @@
 <script src="assets/obsstate.js"></script>
 <script src="assets/twitchchat.js"></script>
 <script>
-const VERSION = "v14 · show extras";   // shown next to the title, so you can tell which copy is loaded
+const VERSION = "v15 · 1 or 2 hosts";   // shown next to the title, so you can tell which copy is loaded
 const L = LAYOUTS, HK = OBSCollection.HOTKEYS;
 document.getElementById("ver").textContent = VERSION;
 document.getElementById("ver").title = "Loaded from " + location.href;
@@ -337,7 +347,8 @@ function btn(parent, scene, kicker, seat, big) {
   return b;
 }
 btn($("layouts"), "Grid", "All seats", null, true).querySelector(".n").textContent = "Grid";
-btn($("layouts"), "Hosts", "Side by side", null, true).querySelector(".n").textContent = "Hosts";
+const hostsBtn = btn($("layouts"), "Hosts", "Side by side", null, true);
+hostsBtn.querySelector(".n").textContent = "Hosts";
 const T = L.TEAMS;
 document.documentElement.style.setProperty("--ta", T.a.color);
 document.documentElement.style.setProperty("--tb", T.b.color);
@@ -452,6 +463,7 @@ function monitor(frameId, scene, instant) {
 // if a monitor page (re)loads, resend what it should be showing
 ["pvwFrame", "pgmFrame"].forEach(id => $(id).addEventListener("load", () => {
   $(id).contentWindow.postMessage({ type: "405th-names", names: Names.snapshot() }, "*");
+  $(id).contentWindow.postMessage({ type: "405th-hosts", n: L.hostCount() }, "*");
   if (lastMon[id]) $(id).contentWindow.postMessage(Object.assign({}, lastMon[id], { instant: true }), "*");
 }));
 /* which seats are on screen in a scene (for the red/green tally borders) */
@@ -552,6 +564,7 @@ function connect() {
       pollStream();
       loadTransitions();
       audioModes.load();
+      for (const k of Object.keys(hostItems)) delete hostItems[k];
       loadShowState();
     } else if (msg.op === 9) {
       const cb = batchCb[msg.d.requestId]; delete batchCb[msg.d.requestId];
@@ -561,6 +574,7 @@ function connect() {
     } else if (msg.op === 5 && msg.d.eventType === "CustomEvent") {
       const d = msg.d.eventData || {};
       if (d.type === "405th-state") applyState(d);
+      if (d.type === "405th-hosts") setHostCount(d.n, true);
     } else if (msg.op === 5 && msg.d.eventType === "SceneNameChanged") {
       learnScenes([msg.d.eventData.sceneName]);
       if (pgmScene === msg.d.eventData.oldSceneName) markLive(msg.d.eventData.sceneName);
@@ -770,6 +784,7 @@ renderBracket();
 
 /* load the stored scoreboard / Q&A / bracket when connected */
 function loadShowState() {
+  OBSState.read(request, "hosts405", st => setHostCount(st && st.n ? st.n : (window.PACK_CONFIG.hosts || 2), true));
   OBSState.read(request, "score405", st => { if (st) score = Object.assign(score, st); paintScore(); });
   OBSState.read(request, "qa405", st => { qaShown = st; paintQa(); });
   OBSState.read(request, "bracket405", st => { if (st) { bracket = Object.assign(bracket, st); bracket.teams = (bracket.teams || []).concat(Array(8).fill("")).slice(0, bracket.size); bracket.win = bracket.win || {}; } renderBracket(); });
@@ -1020,6 +1035,7 @@ function paintChips() {
   if (!chipEls) return;
   for (const seat of L.SEATS) {
     const c = chipEls[seat]; if (!c) continue;
+    c.classList.toggle("gone", !L.seatActive(seat));
     const i = picks.indexOf(seat);
     c.classList.toggle("on", i >= 0);
     c.innerHTML = `<small></small><span></span>${i >= 0 ? "<i>" + (i + 1) + "</i>" : ""}`;
@@ -1097,11 +1113,91 @@ function showPicks(seats) {
 }
 $("pickGo").onclick = () => { if (!studio) stopAuto(); showPicks(picks); };
 
+/* ---------- 1 or 2 hosts ----------
+   Stored in OBS ("hosts405" on the 405th LINK source) so every dock and overlay agrees.
+   Switching moves Host 1's camera + nameplate in Grid, Hosts, the Interviews and Chat / Q&A,
+   hides / shows Host 2 there, and takes Host 2 out of / back into the "always heard" audio. */
+const hostItems = {};     // scene -> { sourceName: sceneItemId }
+function paintHosts() {
+  const n = L.hostCount();
+  document.querySelectorAll("#hostSw button").forEach(b => b.classList.toggle("on", Number(b.dataset.h) === n));
+  $("cams").classList.toggle("solo", n === 1);
+  tiles.host2.b.classList.toggle("gone", n === 1);
+  hostsBtn.querySelector(".k").textContent = n === 1 ? "Solo" : "Side by side";
+  hostsBtn.querySelector(".n").textContent = n === 1 ? "Host" : "Hosts";
+  if (n === 1) { const i = picks.indexOf("host2"); if (i >= 0) picks.splice(i, 1); }
+  paintChips();
+  ["pvwFrame", "pgmFrame"].forEach(id => { try { $(id).contentWindow.postMessage({ type: "405th-hosts", n }, "*"); } catch (e) {} });
+  if (lastMon.pvwFrame) monitor("pvwFrame", lastMon.pvwFrame.scene, true);
+  if (lastMon.pgmFrame) monitor("pgmFrame", lastMon.pgmFrame.scene, true);
+  try { tally(); } catch (e) {}
+  if (typeof fit === "function") fit();
+}
+function setHostCount(n, fromOutside) {
+  n = Number(n) === 1 ? 1 : 2;
+  const changed = n !== L.hostCount();
+  L.setHosts(n);
+  paintHosts();
+  if (fromOutside || !ready) return;
+  $("hostMsg").textContent = "";
+  OBSState.write(request, "hosts405", { n });
+  request("BroadcastCustomEvent", { eventData: { type: "405th-hosts", n } });          // other docks
+  request("CallVendorRequest", { vendorName: "obs-browser", requestType: "emit_event",  // overlays in OBS, instantly
+    requestData: { event_name: "405th-hosts", event_data: { n } } });
+  placeHosts();
+  if (audioModes.known()) audioModes.setSeats(["host2"], n === 2 && audioModes.always("host1"));
+}
+function placeHosts() {
+  const defs = L.hostScenes();
+  const run = () => {
+    const reqs = [], missing = [];
+    for (const def of defs) {
+      const ids = hostItems[def.scene]; if (!ids) continue;
+      const v = L.view(def.view, def.arg);
+      for (const s of ["host1", "host2"]) {
+        const r = v.rects[s], cam = "CAM · " + L.seatName(s), nm = "NAME · " + L.seatName(s);
+        if (ids[cam] == null) { if (r) missing.push(def.scene); continue; }
+        if (r) {
+          reqs.push(["SetSceneItemTransform", { sceneName: def.scene, sceneItemId: ids[cam], sceneItemTransform: {
+            positionX: r.x, positionY: r.y, alignment: 5, rotation: 0, scaleX: 1, scaleY: 1,
+            boundsType: "OBS_BOUNDS_SCALE_INNER", boundsAlignment: 0, boundsWidth: r.w, boundsHeight: r.h,
+            cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0 } }]);
+          if (ids[nm] != null) {
+            const p = L.plateXform(r, !!v.full);
+            reqs.push(["SetSceneItemTransform", { sceneName: def.scene, sceneItemId: ids[nm], sceneItemTransform: {
+              positionX: p.x, positionY: p.y, alignment: 5, rotation: 0, scaleX: p.scale, scaleY: p.scale,
+              boundsType: "OBS_BOUNDS_NONE", cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0 } }]);
+          }
+        }
+        reqs.push(["SetSceneItemEnabled", { sceneName: def.scene, sceneItemId: ids[cam], sceneItemEnabled: !!r }]);
+        if (ids[nm] != null) reqs.push(["SetSceneItemEnabled", { sceneName: def.scene, sceneItemId: ids[nm], sceneItemEnabled: !!r }]);
+      }
+    }
+    const note = missing.length ? `Host 2 isn't in ${missing.length === 1 ? missing[0] : missing.length + " scenes"} yet: re-import the scene collection from setup.html once.` : "";
+    if (!reqs.length) { $("hostMsg").textContent = note || "Host scenes not found. Re-import the scene collection from setup.html."; return; }
+    batch(reqs, results => {
+      const bad = results.filter(r => !r.requestStatus.result);
+      $("hostMsg").textContent = (bad.length ? bad.length + " change(s) failed: " + (bad[0].requestStatus.comment || bad[0].requestType) + ". " : "") + note;
+      resetShots();
+    });
+  };
+  const todo = defs.filter(d => !hostItems[d.scene]);
+  if (!todo.length) return run();
+  batch(todo.map(d => ["GetSceneItemList", { sceneName: d.scene }]), results => {
+    results.forEach((r, i) => {
+      if (r.requestStatus.result) hostItems[todo[i].scene] = Object.fromEntries(r.responseData.sceneItems.map(it => [it.sourceName, it.sceneItemId]));
+    });
+    run();
+  });
+}
+document.querySelectorAll("#hostSw button").forEach(b => b.onclick = () => setHostCount(Number(b.dataset.h)));
+paintHosts();
+
 /* ---------- auto director ---------- */
 let autoTimer = null, autoIdx = -1;
 function sequence() {
   const seats = [];
-  if ($("aHosts").checked) seats.push("host1", "host2");
+  if ($("aHosts").checked) seats.push(...["host1", "host2"].filter(L.seatActive));
   if ($("aPlayers").checked) seats.push(...L.SEATS.filter(s => s[0] === "p"));
   const filled = s => !$("aSkip").checked || !namesKnown || Names.get(s);
   const shots = seats.filter(filled).map(s => "Spotlight · " + L.seatName(s));

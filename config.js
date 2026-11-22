@@ -74,6 +74,9 @@ window.PACK_CONFIG = {
   // Set to false to hide those nameplates instead.
   genericNames: true,
 
+  // 1 or 2 hosts to start with. The Director's Hosts switch changes it live during the show.
+  hosts: 2,
+
   // ---------- EXTRA SCENES ----------
   // Join the 405th
   joinTitle: "Join today",

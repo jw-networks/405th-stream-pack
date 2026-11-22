@@ -12,6 +12,19 @@
     a: { name: "Team A", color: "#5ccbe9", seats: ["p1","p2","p3","p4"] },
     b: { name: "Team B", color: "#ff6a4d", seats: ["p5","p6","p7","p8"] },
   };
+  /* 1 or 2 hosts. Default from config.js → hosts; the Director switches it live (stored in OBS as "hosts405"). */
+  let HOSTS = CFG.hosts === 1 ? 1 : 2;
+  const setHosts = n => { HOSTS = Number(n) === 1 ? 1 : 2; return HOSTS; };
+  const hostCount = () => HOSTS;
+  const withHosts = (n, fn) => { const old = HOSTS; HOSTS = n; try { return fn(); } finally { HOSTS = old; } };
+  const seatActive = s => s !== "host2" || HOSTS === 2;
+  /* where host 1 sits when they're on their own */
+  const SOLO = {
+    grid: { x: 389, y: 32, w: 697, h: 392 },          // centred over the player rows (side panel stays)
+    hosts: { x: 320, y: 196, w: 1280, h: 720 },
+    interview: { x: 1316, y: 331, w: 572, h: 322 },
+    chatwall: { x: 32, y: 320, w: 720, h: 405 },
+  };
   const teamOf = seat => (TEAMS.a.seats.includes(seat) ? "a" : TEAMS.b.seats.includes(seat) ? "b" : null);
 
   const GRID = {
@@ -51,10 +64,12 @@
   function view(name, arg) {
     switch (name) {
       case "hosts":
+        if (HOSTS === 1) return { rects: { host1: SOLO.hosts }, bar: true, title: "Your host" };
         return { rects: place(["host1","host2"], UP[2]), bar: true, title: "Your hosts" };
       case "spotlight":
         return { rects: { [arg]: UP[1][0] }, full: true };
       case "interview":
+        if (HOSTS === 1) return { rects: { [arg]: { x: 32, y: 138, w: 1260, h: 709 }, host1: SOLO.interview }, bar: true, label: "On the mic" };
         return { rects: { [arg]: { x: 32, y: 138, w: 1260, h: 709 },
                           host1: { x: 1316, y: 138, w: 572, h: 322 },
                           host2: { x: 1316, y: 525, w: 572, h: 322 } }, bar: true, label: "On the mic" };
@@ -89,13 +104,18 @@
                  title: (CFG.discord && CFG.discord.title) || "Discord", titleY: 36,
                  extra: [{ x: 32, y: 110, w: 1440, h: 810, label: "Discord window" }, { x: 1496, y: 110, w: 392, h: 810, label: "Voice", panel: true }] };
       case "chatwall":
-        return { rects: { host1: { x: 32, y: 110, w: 720, h: 405 }, host2: { x: 32, y: 531, w: 720, h: 405 } },
+        return { rects: HOSTS === 1 ? { host1: SOLO.chatwall } : { host1: { x: 32, y: 110, w: 720, h: 405 }, host2: { x: 32, y: 531, w: 720, h: 405 } },
                  bar: true, label: "Live chat", title: "Live chat · Q&A", titleY: 36,
                  extra: [{ x: 784, y: 110, w: 1104, h: 826, label: "Chat", panel: true }] };
-      default:
-        return { rects: { ...GRID }, bar: true, side: true, label: "Tonight's fireteam" };
+      default: {
+        const rects = { ...GRID };
+        if (HOSTS === 1) { delete rects.host2; rects.host1 = SOLO.grid; }
+        return { rects, bar: true, side: true, label: "Tonight's fireteam" };
+      }
     }
   }
+  /* scenes whose layout changes with the host count (the Director re-places host cameras in these) */
+  const hostScenes = () => SCENES.filter(d => ["grid", "hosts", "interview", "chatwall"].includes(d.view));
 
   /* ---- OBS scene names. The overlay reads the live scene name to pick its view.
           Rename here if you like, BEFORE generating the scene collection. ---- */
@@ -168,7 +188,7 @@
     return { x: c * SEATS_GRID.cellW, y: r * SEATS_GRID.cellH, w: SEATS_GRID.cellW, h: SEATS_GRID.cellH, col: c, row: r };
   };
 
-  const api = { SEATS_GRID, AUDIO_SCENE, seatCell, PLATE, plateXform, framesFor, FRAMES, W, H, SEATS, GRID, UP, SIDE, TEAMS, teamOf, view, SCENES, sceneToView, seatName, multiName, multiBase };
+  const api = { setHosts, hostCount, withHosts, seatActive, hostScenes, SEATS_GRID, AUDIO_SCENE, seatCell, PLATE, plateXform, framesFor, FRAMES, W, H, SEATS, GRID, UP, SIDE, TEAMS, teamOf, view, SCENES, sceneToView, seatName, multiName, multiBase };
   if (typeof window !== "undefined") window.LAYOUTS = api;
   else globalThis.LAYOUTS = api;
 })();

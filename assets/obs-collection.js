@@ -91,8 +91,12 @@
     return s;
   }
 
-  /* opts: { root, transition, audioMode: "follow" | "all", hostsAlways: true, versusOverride, cameraUrl: seat => link or "" } */
+  /* opts: { root, transition, audioMode: "follow" | "all", hostsAlways: true, hosts: 1 | 2, versusOverride, cameraUrl: seat => link or "" } */
   function build(opts) {
+    const hosts = opts.hosts == null ? L.hostCount() : Number(opts.hosts) === 1 ? 1 : 2;
+    return L.withHosts(hosts, () => buildFor(opts, hosts));
+  }
+  function buildFor(opts, hosts) {
     const rootDir = String(opts.root || "").replace(/\\/g, "/").replace(/\/+$/, "");
     const file = rel => rootDir + "/" + rel;
     const browser = (name, rel, extra = {}) => source("browser_source", name, Object.assign({
@@ -117,7 +121,7 @@
       sources.push(CAM[s], NAME[s]);
     }
     for (const id of Object.keys(L.FRAMES)) { FR[id] = browser("FRAMES · " + id, "presets/frames-" + id + ".html"); sources.push(FR[id]); }
-    const link = browser("405th LINK", "link.html", { width: 16, height: 16 });
+    const link = browser("405th LINK", "link.html", { width: 16, height: 16, hosts405: JSON.stringify({ n: hosts }) });
     sources.push(link);
 
     /* ---- extra scenes' sources ---- */
@@ -143,7 +147,7 @@
     const audioMode = opts.audioMode || (opts.audioAll === true ? "all" : "follow");
     const hostsAlways = opts.hostsAlways !== false;
     const audio = scene(L.AUDIO_SCENE, L.SEATS.map(s => [CAM[s], { rect: L.seatCell(s) },
-      !(audioMode === "all" || (hostsAlways && s.startsWith("host")))]));
+      !L.seatActive(s) || !(audioMode === "all" || (hostsAlways && s.startsWith("host")))]));
     const OFF = { x: -4000, y: -4000, scale: 0.1 };   // placed off-canvas: active but never seen
 
     const base = () => [[audio, OFF]];
@@ -160,9 +164,13 @@
         return scene(def.scene, e.concat(tail()));
       }
       const v = L.view(def.view, def.arg);
-      const seats = L.SEATS.filter(s => v.rects[s]);
+      // the 2-host version of this layout: host cameras not used right now are still added (hidden),
+      // so the Director's 1 / 2 hosts switch can bring them back
+      const v2 = L.withHosts(2, () => L.view(def.view, def.arg));
+      const seats = L.SEATS.filter(s => v.rects[s] || v2.rects[s]);
+      const at = s => v.rects[s] || v2.rects[s];
       const e = base();
-      for (const s of seats) e.push([CAM[s], { rect: v.rects[s] }]);
+      for (const s of seats) e.push([CAM[s], { rect: at(s) }, !v.rects[s]]);
       const ex = v.extra || [];
       // under the frames (seen through the holes): the game feed / the Discord window (+ its audio)
       if (def.view === "gameplay") e.push([gameFeed, { rect: ex[0] }]);
@@ -171,7 +179,7 @@
       // on top of the frames: Discord voice strip / chat panel
       if (def.view === "discord") e.push([discordVoice, { x: ex[1].x, y: ex[1].y, scale: 1 }]);
       if (def.view === "chatwall") e.push([chatPanel, { x: ex[0].x, y: ex[0].y, scale: 1 }]);
-      for (const s of seats) e.push([NAME[s], L.plateXform(v.rects[s], !!v.full)]);
+      for (const s of seats) e.push([NAME[s], L.plateXform(at(s), !!v.full), !v.rects[s]]);
       if (["gameplay", "versus", "duel"].includes(def.view)) e.push([scoreboard, null]);
       e.push([qaCard, null]);
       return scene(def.scene, e.concat(tail()));

@@ -23,6 +23,8 @@
               font-size: 46px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; overflow: hidden;
               border-top: 3px solid var(--cyan); }
   .card.host { height: 108px; }
+  body.solo .card.host2 { display: none; }
+  body.solo .card.host1 { grid-column: 1 / -1; width: 50%; justify-self: center; }
   .card.host .tag { background: var(--cyan); color: #0d2a33; }
   .card.host .nm { font-size: 56px; }
   .card.empty .nm { color: #555; }
@@ -50,6 +52,8 @@
 <script src="config.js"></script>
 <script src="config.local.js" onerror="void 0"></script>
 <script src="assets/names.js"></script>
+<script src="assets/sha256.js"></script>
+<script src="assets/obsstate.js"></script>
 <script>
   const P = new URLSearchParams(location.search);
   const C = Names.config;
@@ -62,7 +66,7 @@
   const short = s => s.startsWith("host") ? "Host" : "P" + s.slice(1);
   function card(seat) {
     const el = document.createElement("div");
-    el.className = "card hexpanel" + (seat.startsWith("host") ? " host" : "");
+    el.className = "card hexpanel" + (seat.startsWith("host") ? " host " + seat : "");
     el.innerHTML = `<div class="tag">${short(seat)}</div><div class="nm"></div>`;
     grid.appendChild(el);
     cards[seat] = el;
@@ -92,6 +96,13 @@
     first = false;
   });
   Names.start();
+
+  // 1 or 2 hosts: switched in the Director, stored in OBS
+  const solo = n => document.body.classList.toggle("solo", Number(n) === 1);
+  solo(C.hosts || 2);
+  if (P.get("hosts")) solo(P.get("hosts"));
+  else if (C.obs && C.obs.address) OBSState.watch("hosts405", st => solo(st && st.n ? st.n : (C.hosts || 2)));
+  window.addEventListener("405th-hosts", e => { let d = e.detail; try { if (typeof d === "string") d = JSON.parse(d); } catch (x) {} if (d && d.n) solo(d.n); });
 </script>
 </body>
 </html>

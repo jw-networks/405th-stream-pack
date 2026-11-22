@@ -141,6 +141,7 @@
 <script src="assets/plate.js"></script>
 <script src="assets/sha256.js"></script>
 <script src="assets/cameras.js"></script>
+<script src="assets/obsstate.js"></script>
 <script>
 const L = LAYOUTS, C = Names.config, P = new URLSearchParams(location.search);
 const DUR = Number(P.get("ms")) || C.transitionMs || 600;
@@ -338,6 +339,7 @@ window.addEventListener("405th-multi", e => applyMulti(e.detail));
         const e = m.d;
         if (e.eventType === "CustomEvent" && e.eventData && e.eventData.type === "405th-multi") applyMulti(e.eventData);
         if (e.eventType === "CustomEvent" && e.eventData && e.eventData.type === "405th-hello") relay();
+        if (e.eventType === "CustomEvent" && e.eventData && e.eventData.type === "405th-hosts") applyHosts(e.eventData.n);
         if (e.eventType === "CurrentProgramSceneChanged") fromScene(e.eventData.sceneName);
       }
     };
@@ -347,10 +349,24 @@ window.addEventListener("405th-multi", e => applyMulti(e.detail));
 })();
 window.fromScene = fromScene;
 
+/* 1 or 2 hosts: re-draw the current layout. The dock's monitors get it by message;
+   in OBS (FRAMES sources / all-in-one) it's read from the show state stored in OBS ("hosts405"). */
+function applyHosts(n) {
+  n = Number(n) === 1 ? 1 : 2;
+  if (n === L.hostCount()) return;
+  L.setHosts(n);
+  if (currentView) { currentKey = ""; setView(currentView, currentArg, true); }
+}
+if (!SCHEMATIC && (FRAMES || window.obsstudio || P.has("ws")) && C.obs && C.obs.address)
+  OBSState.watch("hosts405", st => applyHosts(st && st.n ? st.n : (C.hosts || 2)));
+if (P.get("hosts")) applyHosts(P.get("hosts"));
+window.addEventListener("405th-hosts", e => { let d = e.detail; try { if (typeof d === "string") d = JSON.parse(d); } catch (x) {} if (d && d.n) applyHosts(d.n); });
+
 /* Monitors in the dock are driven by messages: { scene, seats? } */
 window.addEventListener("message", e => {
   const d = e.data || {};
   if (d.type === "405th-names") { Names.set(d.names); return; }
+  if (d.type === "405th-hosts") { applyHosts(d.n); return; }
   if (d.type !== "405th-monitor") return;
   if (d.seats) multiPicks[d.scene] = d.seats;
   const m = L.sceneToView(d.scene);

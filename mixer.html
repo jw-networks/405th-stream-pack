@@ -90,8 +90,9 @@ Dimmed = not heard right now (off screen and not set to "Always heard").</div>
 <script src="assets/names.js"></script>
 <script src="assets/sha256.js"></script>
 <script src="assets/audiomodes.js"></script>
+<script src="assets/obsstate.js"></script>
 <script>
-const VERSION = "v2";
+const VERSION = "v3";
 const L = LAYOUTS, $ = id => document.getElementById(id);
 $("ver").textContent = VERSION;
 const store = { get: k => { try { return localStorage.getItem("405th." + k); } catch (e) { return null; } },
@@ -177,6 +178,14 @@ for (const s of L.SEATS) {
   const where = s.startsWith("host") ? "hosts" : L.teamOf(s);
   group(where).appendChild(st.el);
 }
+
+/* 1 or 2 hosts (set in the Director): hide Host 2's strip when there's only one host */
+function setHosts(n) {
+  L.setHosts(n);
+  const st = strips[camName("host2")];
+  if (st) st.el.style.display = L.seatActive("host2") ? "" : "none";
+}
+setHosts(L.hostCount());
 
 /* fader position <-> dB (linear in dB from 0 at the top to MIN_DB at the bottom) */
 function dbToY(db) { return db >= 0 ? 0 : db <= MIN_DB ? 1 : -db / -MIN_DB; }
@@ -314,6 +323,7 @@ function connect() {
       $("settings").classList.remove("open");
       loadInputs();
       audioModes.load();
+      OBSState.read(request, "hosts405", st => setHosts(st && st.n ? st.n : (window.PACK_CONFIG.hosts || 2)));
       request("GetCurrentProgramScene", {}, r => { if (r.responseData) { pgmScene = r.responseData.sceneName || r.responseData.currentProgramSceneName; tally(); } });
       request("BroadcastCustomEvent", { eventData: { type: "405th-hello" } });   // ask OBS for names
     } else if (msg.op === 7) {
@@ -327,6 +337,7 @@ function connect() {
       else if (t === "SceneNameChanged" && pgmScene === e.oldSceneName) { pgmScene = e.sceneName; tally(); }
       else if (t === "InputCreated" || t === "InputRemoved" || t === "InputNameChanged") loadInputs();
       else if (t === "CustomEvent" && e.type === "405th-state" && e.names) Names.set(e.names);
+      else if (t === "CustomEvent" && e.type === "405th-hosts") setHosts(e.n);
       else if (t === "SceneItemEnableStateChanged") { audioModes.onEvent(t, e); tally(); }
     }
   };
