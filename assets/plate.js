@@ -31,6 +31,9 @@ window.makePlate = function (seat, opts = {}) {
       timer = setTimeout(apply, name ? 550 : 0);
     } else apply();
   }
-  Names.onChange(() => set(Names.get(seat)));
+  Names.onChange(() => {
+    if (!opts.label) el.querySelector(".label").textContent = Names.label(seat);   // follows the show type
+    set(Names.get(seat));
+  });
   return el;
 };

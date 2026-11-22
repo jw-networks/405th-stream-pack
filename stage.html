@@ -94,7 +94,9 @@
   #bar img { height: 66px; }
   #bar .big { font-size: 46px; letter-spacing: .06em; }
   #bar .slash { width: 3px; height: 54px; background: var(--cyan); transform: skewX(-20deg); opacity: .7; }
-  #bar .label { font-size: 30px; }
+  #bar .label { font-size: 30px; max-width: 900px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #bar .label.topic::before { content: "Topic"; display: inline-block; margin-right: 14px; padding: 2px 10px; vertical-align: 3px;
+                              background: var(--cyan); color: #0b2630; font-size: 20px; letter-spacing: .12em; }
   #bar .spacer { flex: 1; }
   #bar .url { font-size: 30px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
   body.nobar #bar { display: none; }
@@ -136,6 +138,7 @@
 
 <script src="config.js"></script>
 <script src="config.local.js" onerror="void 0"></script>
+<script src="assets/shows.js"></script>
 <script src="assets/layouts.js"></script>
 <script src="assets/names.js"></script>
 <script src="assets/plate.js"></script>
@@ -227,9 +230,13 @@ const teamName = t => Names.get("team" + t) || L.TEAMS[t].name;
 document.documentElement.style.setProperty("--ta", L.TEAMS.a.color);
 document.documentElement.style.setProperty("--tb", L.TEAMS.b.color);
 
+let TOPIC = null;
 function refreshText(v) {
   v = v || L.view(currentView, currentArg);
-  $("barLabel").textContent = v.team ? teamName(v.team) : (v.label || "");
+  // Open Panel topic (Director → Topic) replaces the bar label on every non-team layout
+  const topicOn = !v.team && TOPIC && TOPIC.show && TOPIC.text;
+  $("barLabel").textContent = topicOn ? TOPIC.text : v.team ? teamName(v.team) : (v.label || "");
+  $("barLabel").classList.toggle("topic", !!topicOn);
   document.querySelector("#bar .slash").style.visibility = $("barLabel").textContent ? "" : "hidden";
   $("bar").style.borderTopColor = v.team ? L.TEAMS[v.team].color : "";
   $("barLabel").style.color = v.team ? L.TEAMS[v.team].color : "";
@@ -263,7 +270,7 @@ function setView(name, arg, instant) {
     if (target && c.iframe) { c.base = { w: Math.round(target.w), h: Math.round(target.h) }; c.iframe.width = c.base.w; c.iframe.height = c.base.h; }
     c.el.classList.toggle("full", !!(target && v.full));
     const team = L.teamOf(s);
-    if (v.tint && !NOTINT && team) c.el.style.setProperty("--cyan", L.TEAMS[team].color); else c.el.style.removeProperty("--cyan");
+    if (v.tint && !NOTINT && team && SHOWS.teams()) c.el.style.setProperty("--cyan", L.TEAMS[team].color); else c.el.style.removeProperty("--cyan");
     c.plate.querySelector(".name").style.fontSize = "";
     const fs = target ? plateSize(target.w) : 10;
     c.plate.style.fontSize = fs + "px";
@@ -362,6 +369,17 @@ if (!SCHEMATIC && (FRAMES || window.obsstudio || P.has("ws")) && C.obs && C.obs.
 if (P.get("hosts")) applyHosts(P.get("hosts"));
 window.addEventListener("405th-hosts", e => { let d = e.detail; try { if (typeof d === "string") d = JSON.parse(d); } catch (x) {} if (d && d.n) applyHosts(d.n); });
 
+/* Show type (Tournament / Book Club / …): labels, team colours, crew title. Open Panel topic in the bar. */
+const redraw = () => { if (currentView) { currentKey = ""; setView(currentView, currentArg, true); } };
+SHOWS.onChange(redraw);
+const inObs = !SCHEMATIC && (FRAMES || window.obsstudio || P.has("ws")) && C.obs && C.obs.address;
+SHOWS.follow({ ws: !!inObs });
+if (P.get("topic")) TOPIC = { show: true, text: P.get("topic") };
+else if (inObs) OBSState.watch("topic405", st => { TOPIC = st; if (currentView) refreshText(); }, { poll: 3000 });
+window.addEventListener("message", e => { const d = e.data || {};
+  if (d.type === "405th-topic") { TOPIC = d.topic; if (currentView) refreshText(); }
+  if (d.type === "405th-presenter") { L.setPresenter(d.seat); if (currentView === "tut") redraw(); } });
+
 /* Monitors in the dock are driven by messages: { scene, seats? } */
 window.addEventListener("message", e => {
   const d = e.data || {};
@@ -385,6 +403,7 @@ if (SCHEMATIC && !P.get("view")) {
   if (v === "duel") arg = Number(P.get("n") || 1) - 1;
   if (v === "multi") arg = (P.get("seats") || "p1,p2").split(",").map(Names.seatKey);
   if (v === "gameplay") arg = P.get("arg") || "teams";
+  if (v === "tut" || v === "gn") arg = P.get("arg") || (v === "tut" ? "split" : "side");
   setView(v, arg, true);
 } else {
   setView("grid", null, true);

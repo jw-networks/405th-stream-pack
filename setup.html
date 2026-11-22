@@ -49,6 +49,9 @@
     <label class="check"><input type="checkbox" id="vsOverride">
       <span>Play the <b>405th Versus</b> stinger whenever you switch to Team A, Team B, Versus or a Duel (you can also turn this on/off any time in the Director). All three stingers are added to OBS either way.</span></label>
     <div class="note">Move plugin: <a href="https://obsproject.com/forum/resources/move.913/" target="_blank">obsproject.com/forum/resources/move.913</a>. Install it before importing if you pick Move.</div>
+    <label for="show">Show type</label>
+    <select id="show" style="padding:10px;font-size:16px;background:#0f0f0f;color:#fff;border:1px solid #333"></select>
+    <div class="note">Starting point only. Switch any time from the Director's <b>Show</b> menu: it changes seat labels (Player / Reader / Squad / Guest / Panelist), team colours and the Director's layout. Every show's scenes are always included.</div>
     <label for="hosts">Hosts</label>
     <select id="hosts" style="padding:10px;font-size:16px;background:#0f0f0f;color:#fff;border:1px solid #333">
       <option value="2">2 hosts</option>
@@ -87,6 +90,7 @@
 
 <script src="config.js"></script>
 <script src="config.local.js" onerror="void 0"></script>
+<script src="assets/shows.js"></script>
 <script src="assets/layouts.js"></script>
 <script src="assets/cameras.js"></script>
 <script src="assets/discord-voice-css.js"></script>
@@ -108,6 +112,8 @@
   // In Studio Mode, the scene keys load Preview and Numpad + takes it live.
 
   document.getElementById("hosts").value = String(LAYOUTS.hostCount());
+  document.getElementById("show").innerHTML = Object.entries(SHOWS.TYPES).map(([k, t]) => `<option value="${k}">${t.label}</option>`).join("");
+  document.getElementById("show").value = SHOWS.get();
   document.getElementById("go").onclick = () => {
     const json = OBSCollection.build({
       root: document.getElementById("root").value.trim(),
@@ -115,6 +121,7 @@
       audioMode: document.getElementById("audioMode").value,
       hostsAlways: document.getElementById("hostsAlways").checked,
       hosts: Number(document.getElementById("hosts").value),
+      show: document.getElementById("show").value,
       cameraUrl: seat => cameraUrl(seat, "overlay"),
       versusOverride: document.getElementById("vsOverride").checked,
     });

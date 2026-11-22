@@ -77,6 +77,10 @@ window.PACK_CONFIG = {
   // 1 or 2 hosts to start with. The Director's Hosts switch changes it live during the show.
   hosts: 2,
 
+  // Show type to start with: "tournament", "bookclub", "gamenight", "tutorial" or "hangout".
+  // The Director's Show menu changes it live.
+  show: "tournament",
+
   // ---------- EXTRA SCENES ----------
   // Join the 405th
   joinTitle: "Join today",

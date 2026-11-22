@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<!-- NOW PLAYING card, top-right. Transparent 1920 x 1080 (Game Night, Gameplay and Discord scenes).
+     Filled in from the Director → Game Night panel (stored in OBS as "game405").
+     Test:  nowplaying.html?state={"show":true,"title":"Halo Infinite","mode":"Big Team Battle · Fragmentation","note":"Squad up in Discord"} -->
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  body { width: 1920px; height: 1080px; position: relative; }
+  #np { position: absolute; right: 32px; top: 24px; width: 560px; transform: translateX(40px); opacity: 0;
+        transition: transform .7s var(--ease), opacity .45s; box-shadow: 0 14px 36px rgba(0,0,0,.55); }
+  #np.on { transform: none; opacity: 1; }
+  .tab { display: inline-flex; align-items: center; gap: 12px; height: 38px; padding: 0 44px 0 16px; background: var(--panel);
+         clip-path: polygon(0 0, calc(100% - 26px) 0, 100% 100%, 0 100%); }
+  .tab .label { font-size: 20px; }
+  .tab i { width: 12px; height: 12px; border-radius: 50%; background: #e53935; box-shadow: 0 0 10px #e53935; animation: pulse 1.6s infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .body { background: rgba(18,18,18,.95); border-top: 4px solid var(--cyan); padding: 12px 20px 14px; }
+  #t { font-size: 52px; font-weight: 800; line-height: 1; text-transform: uppercase; white-space: nowrap; overflow: hidden; font-variation-settings: "wdth" 75; }
+  #m { margin-top: 6px; font-size: 26px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--cyan); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #n { margin-top: 4px; font-size: 22px; font-weight: 600; color: #bbb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #n:empty, #m:empty { display: none; }
+</style>
+</head>
+<body>
+<div id="np"><div class="tab"><i></i><span class="label">Now playing</span></div>
+  <div class="body"><div id="t"></div><div id="m"></div><div id="n"></div></div></div>
+<script src="config.js"></script>
+<script src="config.local.js" onerror="void 0"></script>
+<script src="assets/sha256.js"></script>
+<script src="assets/obsstate.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+let hideT;
+OBSState.watch("game405", g => {
+  g = g || {};
+  const on = !!(g.show && g.title);
+  const apply = () => {
+    $("t").textContent = g.title || ""; $("m").textContent = g.mode || ""; $("n").textContent = g.note || "";
+    let s = 52; $("t").style.fontSize = s + "px"; while (s > 30 && $("t").scrollWidth > $("t").clientWidth) $("t").style.fontSize = (s -= 2) + "px";
+    $("np").classList.toggle("on", on);
+  };
+  clearTimeout(hideT);
+  if ($("np").classList.contains("on") && on && $("t").textContent !== g.title) { $("np").classList.remove("on"); hideT = setTimeout(apply, 450); }
+  else apply();
+}, { poll: 3000 });
+</script>
+</body>
+</html>

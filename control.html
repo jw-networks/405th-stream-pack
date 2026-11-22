@@ -63,6 +63,22 @@
   .steam b { flex: 1; font-size: 14px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .steam .num { min-width: 34px; text-align: center; font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
   .hint { font-size: 11px; color: #888; }
+  /* show types */
+  #showType { margin-left: auto; margin-right: 8px; background: #12302f; color: #fff; border: 1px solid var(--teal); padding: 3px 6px;
+              font: 800 13px var(--font); font-variation-settings: "wdth" 75; letter-spacing: .08em; text-transform: uppercase; }
+  .sec.hide { display: none; }
+  details.more > summary { font-size: 12px; }
+  h4.sub { margin: 10px 0 4px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--cyan); }
+  h4.sub small { color: #777; letter-spacing: .02em; text-transform: none; font-weight: 600; }
+  .panel textarea { width: 100%; box-sizing: border-box; padding: 6px; background: #0f0f0f; color: #fff; border: 1px solid #333; font: 13px/1.35 system-ui, sans-serif; resize: vertical; }
+  .panel select { background: #0f0f0f; color: #ddd; border: 1px solid #333; padding: 3px; }
+  .srow input[type=checkbox] { flex: 0 0 auto; min-width: 0; }
+  .cardlist { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+  .cardlist .qam.on { border-left-color: var(--cyan); background: #12302f; }
+  .tunow { flex: 1; text-align: center; font-size: 15px; font-weight: 800; text-transform: uppercase; background: #1b1b1b; padding: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .panel .grid { margin-bottom: 6px; }
+  .qq { display: flex; gap: 3px; } .qq .qam { flex: 1; } .qq .pbtn { padding: 4px 8px; }
+  button.sw.tile.solo-color .cap .k { color: var(--cyan); }
   .qafeat { background: #12302f; border-left: 4px solid var(--cyan); padding: 6px 8px; min-height: 34px; font-size: 13px; }
   .qafeat b { text-transform: uppercase; margin-right: 6px; }
   .qalist { max-height: 260px; overflow: auto; margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
@@ -197,7 +213,7 @@
 </head>
 <body class="direct">
 <div id="pinned">  <!-- stays on screen while the rest scrolls -->
-<div class="top"><img src="assets/emblem.png" alt=""><b>Director <small id="ver" style="font-size:11px;color:#777;letter-spacing:.05em;font-weight:600"></small></b><span id="status" title="Click to show/hide connection settings">Offline ⚙</span></div>
+<div class="top"><img src="assets/emblem.png" alt=""><b>Director <small id="ver" style="font-size:11px;color:#777;letter-spacing:.05em;font-weight:600"></small></b><select id="showType" title="Show type: rearranges this dock and changes seat labels on screen"></select><span id="status" title="Click to show/hide connection settings">Offline ⚙</span></div>
 
 <div id="settings">
   <label>OBS WebSocket address — <i>localhost:4455</i> on the OBS PC, <i>192.168.x.x:4455</i> on your network, or a <i>wss://</i> tunnel address for remote use</label><input id="host" value="localhost:4455">
@@ -222,6 +238,59 @@
 </div>
 <div class="row mode"><label><input type="checkbox" id="studio"> <b>Preview first</b>&nbsp;— buttons &amp; hotkeys load Preview, TAKE goes live (OBS Studio Mode)</label></div>
 
+<div id="secs">
+<section class="sec" data-sec="book">
+<h3>Book club</h3>
+<div class="panel" id="bookPanel">
+  <div class="grid two" id="bookScenes"></div>
+  <div class="srow"><input id="bkTitle" placeholder="Book title"><input id="bkAuthor" placeholder="Author"></div>
+  <div class="srow"><input id="bkSession" placeholder="This session, e.g. Chapters 5–8"><input id="bkProgress" type="number" min="0" max="100" placeholder="Progress %" style="flex:0 0 96px;min-width:0"></div>
+  <div class="srow"><input id="bkCover" placeholder="Cover image: web link, or a file in the pack folder (assets/books/reach.jpg)"></div>
+  <div class="srow"><input id="bkNote" placeholder="Note, e.g. Next week: Chapters 9–12"></div>
+  <div class="hint">Shows on Book Club · Spotlight. Saved as you type. No cover? One is made from the title.</div>
+  <h4 class="sub">Discussion questions <small>· one per line · click to put on screen</small></h4>
+  <textarea id="bkQs" rows="3" placeholder="What did you make of Halsey's choice?&#10;Who was your favourite Spartan so far?"></textarea>
+  <div class="cardlist" id="bkQList"></div>
+  <h4 class="sub">Quotes <small>· one per line · add the page after a | (Text | p. 112)</small></h4>
+  <textarea id="bkQuotes" rows="3" placeholder="A Spartan never dies. | p. 112"></textarea>
+  <div class="cardlist" id="bkQuoteList"></div>
+  <div class="srow"><button class="pbtn" data-hidecard>Hide card</button><span class="hint">Cards show on every camera scene (the Q&amp;A card spot).</span></div>
+</div>
+</section>
+<section class="sec" data-sec="tut">
+<h3>Tutorial</h3>
+<div class="panel" id="tutPanel">
+  <div class="grid" id="tutScenes"></div>
+  <div class="srow"><input id="tuTitle" placeholder="Tutorial title"><label class="hint">Presenter <select id="tuPres"></select></label></div>
+  <h4 class="sub">Steps <small>· one per line</small></h4>
+  <textarea id="tuSteps" rows="4" placeholder="Print the pieces&#10;Sand and fill&#10;Prime&#10;Paint"></textarea>
+  <div class="srow"><button class="pbtn" id="tuPrev">◀ Prev</button><div class="tunow" id="tuNow">—</div><button class="pbtn" id="tuNext">Next ▶</button></div>
+  <div class="srow"><label class="hint"><input type="checkbox" id="tuShow" checked> Show steps on screen</label></div>
+  <div class="hint">Put your display / window capture inside the <b>SCREEN SHARE</b> scene once. Questions: use the Q&amp;A queue below.</div>
+</div>
+</section>
+<section class="sec" data-sec="topic">
+<h3>Panel topic</h3>
+<div class="panel" id="topicPanel">
+  <div class="grid two" id="panelScenes"></div>
+  <div class="srow"><input id="tpText" placeholder="Topic, e.g. Best Halo armor of all time?"><button class="pbtn" id="tpShow">Show</button></div>
+  <h4 class="sub">Topics for tonight <small>· one per line · click to make it the topic</small></h4>
+  <textarea id="tpList" rows="3" placeholder="Favourite build this year&#10;Halo lore deep cuts&#10;Convention plans"></textarea>
+  <div class="cardlist" id="tpBtns"></div>
+  <div class="hint">The topic replaces the label in the bottom bar on every camera layout.</div>
+</div>
+</section>
+<section class="sec" data-sec="game">
+<h3>Game night</h3>
+<div class="panel" id="gamePanel">
+  <div class="grid two" id="gnScenes"></div>
+  <div class="srow"><input id="gnTitle" placeholder="Now playing, e.g. Halo Infinite"><button class="pbtn" id="gnShow">Show</button></div>
+  <div class="srow"><input id="gnMode" placeholder="Mode / map, e.g. Big Team Battle · Fragmentation"></div>
+  <div class="srow"><input id="gnNote" placeholder="Note, e.g. Join us in the 405th Discord"></div>
+  <div class="hint">"Now playing" card shows top-right on Game Night, Gameplay and Discord scenes.</div>
+</div>
+</section>
+<section class="sec" data-sec="cams">
 <h3>Cameras · click for spotlight</h3>
 <div class="grid" id="cams"></div>
 <div class="opts">
@@ -239,28 +308,41 @@
     <option value="5">5 fps</option><option value="10">10 fps</option><option value="15" selected>15 fps</option>
     <option value="24">24 fps</option><option value="30">30 fps</option></select></label>
 </div>
-
+</section>
+<section class="sec" data-sec="layouts">
 <h3>Layouts <span class="hostsw" id="hostSw" title="How many hosts tonight. Re-places the host cameras in Grid, Hosts, Interviews and Chat / Q&amp;A, and mutes the unused host mic.">HOSTS <button data-h="1">1</button><button data-h="2">2</button></span></h3>
 <div class="msg" id="hostMsg"></div>
 <div class="grid two" id="layouts"></div>
+</section>
+<section class="sec" data-sec="teams">
 <h3>Teams</h3>
 <div class="grid" id="teams"></div>
+</section>
+<section class="sec" data-sec="duels">
 <h3>Duels (2-up)</h3>
 <div class="grid two" id="duels"></div>
+</section>
+<section class="sec" data-sec="custom">
 <h3>Custom 2 / 3 / 4-up</h3>
 <div class="picker">
   <div class="chips" id="chips"></div>
   <div class="pickrow"><button id="pickGo" disabled>Pick seats</button><button id="pickClear">Clear</button></div>
   <div class="msg" id="pickMsg"></div>
 </div>
-
+</section>
+<section class="sec" data-sec="inter">
 <h3>Interview (player + hosts)</h3>
 <div class="grid" id="inter"></div>
+</section>
+<section class="sec" data-sec="segments">
 <h3>Segments</h3>
 <div class="grid" id="segments"></div>
+</section>
+<section class="sec" data-sec="screens">
 <h3>Screens</h3>
 <div class="grid" id="screens"></div>
-
+</section>
+<section class="sec" data-sec="score">
 <h3>Scoreboard</h3>
 <div class="panel" id="scorePanel">
   <div class="srow">
@@ -278,14 +360,19 @@
   </div>
   <div class="hint">Shows on Gameplay, Versus and Duel scenes. "Round →" adds a point and plays the round-won banner.</div>
 </div>
-
+</section>
+<section class="sec" data-sec="qa">
 <h3>Q&amp;A · Twitch chat</h3>
 <div class="panel" id="qaPanel">
   <div class="qafeat" id="qaFeat"><span class="hint">Click a chat message below to put it on screen.</span></div>
-  <div class="srow"><button class="pbtn" id="qaHide">Hide card</button><span class="hint" id="qaStatus"></span></div>
+  <div class="srow"><button class="pbtn" id="qaHide">Hide card</button><button class="pbtn" id="qaNext" title="Show the first question in the queue">Next in queue ▶</button><span class="hint" id="qaStatus"></span></div>
+  <h4 class="sub">Queue <small>· click + on a chat message to queue it</small></h4>
+  <div class="cardlist" id="qaQueue"><span class="hint">Empty.</span></div>
+  <h4 class="sub">Chat</h4>
   <div class="qalist" id="qaList"></div>
 </div>
-
+</section>
+<section class="sec" data-sec="bracket">
 <details class="panel" id="brPanel"><summary>Bracket</summary>
   <div class="srow"><input id="brTitle" placeholder="Title (e.g. Halo 3 Tournament)"><input id="brSub" placeholder="Subtitle"></div>
   <div class="srow"><label class="hint">Teams <select id="brSize"><option value="8">8</option><option value="4">4</option></select></label>
@@ -294,7 +381,8 @@
   <div class="brmatches" id="brMatches"></div>
   <div class="hint">Click the winner of each match; they move to the next round. Show it with Screens → Bracket.</div>
 </details>
-
+</section>
+<section class="sec" data-sec="auto">
 <h3>Auto director <small style="color:var(--muted);letter-spacing:.04em;text-transform:none;font-weight:600">· switches Program directly</small></h3>
 <div class="auto" id="auto">
   <button id="autoBtn">Start auto cycle</button>
@@ -309,9 +397,13 @@
   </div>
   <div id="next"></div>
 </div>
+</section>
+</div>
+<details class="panel more" id="moreSecs"><summary>More controls</summary><div id="moreBody"></div></details>
 
 <script src="config.js"></script>
 <script src="config.local.js" onerror="void 0"></script>
+<script src="assets/shows.js"></script>
 <script src="assets/layouts.js"></script>
 <script src="assets/names.js"></script>
 <script src="assets/obs-collection.js"></script>
@@ -321,7 +413,7 @@
 <script src="assets/obsstate.js"></script>
 <script src="assets/twitchchat.js"></script>
 <script>
-const VERSION = "v15 · 1 or 2 hosts";   // shown next to the title, so you can tell which copy is loaded
+const VERSION = "v16 · show types";   // shown next to the title, so you can tell which copy is loaded
 const L = LAYOUTS, HK = OBSCollection.HOTKEYS;
 document.getElementById("ver").textContent = VERSION;
 document.getElementById("ver").title = "Loaded from " + location.href;
@@ -427,6 +519,8 @@ function paintNames() {
   paintChips();
   for (const b of buttons) {
     if (!b.dataset.seat) continue;
+    const st = b.dataset.seat;
+    b.querySelector(".k").textContent = st.startsWith("host") ? "Host " + st.slice(4) : Names.label(st);   // Player / Reader / Squad …
     const name = Names.get(b.dataset.seat);
     b.querySelector(".n").textContent = name || (namesKnown ? "Empty" : L.seatName(b.dataset.seat));
     b.classList.toggle("empty", namesKnown && !name);
@@ -464,6 +558,9 @@ function monitor(frameId, scene, instant) {
 ["pvwFrame", "pgmFrame"].forEach(id => $(id).addEventListener("load", () => {
   $(id).contentWindow.postMessage({ type: "405th-names", names: Names.snapshot() }, "*");
   $(id).contentWindow.postMessage({ type: "405th-hosts", n: L.hostCount() }, "*");
+  $(id).contentWindow.postMessage({ type: "405th-show", show: SHOWS.get() }, "*");
+  $(id).contentWindow.postMessage({ type: "405th-topic", topic: typeof topic !== "undefined" ? topic : null }, "*");
+  $(id).contentWindow.postMessage({ type: "405th-presenter", seat: L.presenter() }, "*");
   if (lastMon[id]) $(id).contentWindow.postMessage(Object.assign({}, lastMon[id], { instant: true }), "*");
 }));
 /* which seats are on screen in a scene (for the red/green tally borders) */
@@ -575,6 +672,8 @@ function connect() {
       const d = msg.d.eventData || {};
       if (d.type === "405th-state") applyState(d);
       if (d.type === "405th-hosts") setHostCount(d.n, true);
+      if (d.type === "405th-show") applyShow(d.show, true);
+      if (d.type === "405th-statechange" && SHOW_KEYS.includes(d.key) && !(Date.now() - (lastWrite[d.key] || 0) < 2500)) loadPanels();   // another dock changed it
     } else if (msg.op === 5 && msg.d.eventType === "SceneNameChanged") {
       learnScenes([msg.d.eventData.sceneName]);
       if (pgmScene === msg.d.eventData.oldSceneName) markLive(msg.d.eventData.sceneName);
@@ -709,24 +808,203 @@ function startChat() {
   qaChat = TwitchChat(ch, m => { qaMsgs.unshift(m); if (qaMsgs.length > 50) qaMsgs.pop(); renderQa(); },
                       st => $("qaStatus").textContent = "twitch.tv/" + ch + " · " + st);
 }
+let qaQueue = [];
+/* put a card on screen: chat question, Book Club question / quote … (the Q&A CARD overlay) */
+function showCard(card) {
+  qaShown = Object.assign({ shown: true, at: Date.now() }, card);
+  saveQa();
+}
+function saveQa() {
+  const st = Object.assign({ shown: false }, qaShown || {}, { queue: qaQueue, more: qaQueue.length });
+  OBSState.write(request, "qa405", st);
+  paintQa();
+}
+const msgBtn = (m, onShow) => {
+  const b = document.createElement("button"); b.className = "qam"; b.title = "Put this on screen";
+  b.innerHTML = "<b></b><span></span>";
+  b.querySelector("b").textContent = m.user; b.querySelector("b").style.color = m.color || "";
+  b.querySelector("span").textContent = m.text;
+  b.onclick = onShow;
+  return b;
+};
 function renderQa() {
   $("qaList").innerHTML = "";
   for (const m of qaMsgs) {
-    const b = document.createElement("button"); b.className = "qam"; b.title = "Put this on screen";
-    b.innerHTML = "<b></b><span></span>";
-    b.querySelector("b").textContent = m.user; b.querySelector("b").style.color = m.color;
-    b.querySelector("span").textContent = m.text;
-    b.onclick = () => { qaShown = { shown: true, user: m.user, text: m.text, color: m.color, at: Date.now() }; OBSState.write(request, "qa405", qaShown); paintQa(); };
-    $("qaList").appendChild(b);
+    const row = document.createElement("div"); row.className = "qq";
+    row.appendChild(msgBtn(m, () => showCard({ user: m.user, text: m.text, color: m.color })));
+    const q = document.createElement("button"); q.className = "pbtn"; q.textContent = "+"; q.title = "Add to the question queue";
+    q.onclick = () => { if (!qaQueue.some(x => x.text === m.text && x.user === m.user)) { qaQueue.push({ user: m.user, text: m.text, color: m.color }); saveQa(); } };
+    row.appendChild(q);
+    $("qaList").appendChild(row);
   }
 }
 function paintQa() {
   const f = $("qaFeat");
-  if (qaShown && qaShown.shown) { f.innerHTML = "<b></b><span></span>"; f.querySelector("b").textContent = qaShown.user + ":"; f.querySelector("b").style.color = qaShown.color || "#fff"; f.querySelector("span").textContent = qaShown.text; }
+  if (qaShown && qaShown.shown) { f.innerHTML = "<b></b><span></span>"; f.querySelector("b").textContent = (qaShown.label && qaShown.label !== "Question from" ? qaShown.label + " · " : "") + (qaShown.user || "") + ":"; f.querySelector("b").style.color = qaShown.color || "#fff"; f.querySelector("span").textContent = qaShown.text; }
   else f.innerHTML = `<span class="hint">Click a chat message below to put it on screen.</span>`;
+  const qd = $("qaQueue"); qd.innerHTML = "";
+  if (!qaQueue.length) qd.innerHTML = `<span class="hint">Empty.</span>`;
+  qaQueue.forEach((m, i) => {
+    const row = document.createElement("div"); row.className = "qq";
+    row.appendChild(msgBtn(m, () => { qaQueue.splice(i, 1); showCard({ user: m.user, text: m.text, color: m.color }); }));
+    const x = document.createElement("button"); x.className = "pbtn"; x.textContent = "×"; x.title = "Remove from the queue";
+    x.onclick = () => { qaQueue.splice(i, 1); saveQa(); };
+    row.appendChild(x); qd.appendChild(row);
+  });
+  $("qaNext").disabled = !qaQueue.length;
 }
-$("qaHide").onclick = () => { qaShown = Object.assign({}, qaShown || {}, { shown: false }); OBSState.write(request, "qa405", qaShown); paintQa(); };
+const hideCard = () => { qaShown = Object.assign({}, qaShown || {}, { shown: false }); saveQa(); };
+$("qaHide").onclick = hideCard;
+document.querySelectorAll("[data-hidecard]").forEach(b => b.onclick = hideCard);
+$("qaNext").onclick = () => { const m = qaQueue.shift(); if (m) showCard({ user: m.user, text: m.text, color: m.color }); };
 startChat();
+
+/* ---------- show types: Tournament / Book Club / Game Night / Tutorial Q&A / Open Panel ----------
+   The Show menu (top bar) rearranges this dock: that show's sections first, everything else under
+   "More controls". It also tells OBS (show405) so seat labels and team colours change on screen. */
+const PROFILES = {
+  tournament: ["cams", "layouts", "teams", "duels", "score", "segments", "custom", "inter", "bracket", "qa", "screens", "auto"],
+  bookclub:   ["book", "cams", "layouts", "custom", "inter", "qa", "screens", "auto"],
+  gamenight:  ["game", "cams", "layouts", "segments", "custom", "score", "teams", "qa", "screens", "auto"],
+  tutorial:   ["tut", "qa", "cams", "layouts", "custom", "inter", "screens"],
+  hangout:    ["topic", "cams", "layouts", "custom", "inter", "qa", "segments", "screens", "auto"],
+};
+const SECS = Object.fromEntries([...document.querySelectorAll("section.sec")].map(el => [el.dataset.sec, el]));
+$("showType").innerHTML = Object.entries(SHOWS.TYPES).map(([k, t]) => `<option value="${k}">${t.label}</option>`).join("");
+function arrange() {
+  const main = PROFILES[SHOWS.get()] || PROFILES.tournament;
+  for (const k of main) if (SECS[k]) $("secs").appendChild(SECS[k]);
+  const rest = Object.keys(SECS).filter(k => !main.includes(k));
+  for (const k of rest) $("moreBody").appendChild(SECS[k]);
+  $("moreSecs").style.display = rest.length ? "" : "none";
+  $("showType").value = SHOWS.get();
+  const teams = SHOWS.teams();
+  for (const [s, t] of Object.entries(tiles)) if (!s.startsWith("host")) {
+    t.b.classList.toggle("team-a", teams && L.teamOf(s) === "a");
+    t.b.classList.toggle("team-b", teams && L.teamOf(s) === "b");
+  }
+  SECS.inter.querySelector("h3").textContent = `Interview (${SHOWS.role().toLowerCase()} + hosts)`;
+  paintNames();
+  if (typeof fit === "function") fit();
+}
+function applyShow(type, fromOutside) {
+  if (!SHOWS.TYPES[type]) return;
+  SHOWS.set(type);
+  store.set("show", type);
+  arrange();
+  ["pvwFrame", "pgmFrame"].forEach(id => { try { $(id).contentWindow.postMessage({ type: "405th-show", show: type }, "*"); } catch (e) {} });
+  if (fromOutside || !ready) return;
+  OBSState.write(request, "show405", { type });
+  request("BroadcastCustomEvent", { eventData: { type: "405th-show", show: type } });     // other docks
+}
+$("showType").onchange = () => applyShow($("showType").value);
+applyShow(store.get("show") || SHOWS.get(), true);   // until OBS says otherwise
+
+/* scene buttons inside the show panels */
+const sceneBtns = (el, list) => list.forEach(([sc, k, n]) => btn($(el), sc, k).querySelector(".n").textContent = n);
+sceneBtns("bookScenes", [["Book Club · Spotlight", "Book", "Spotlight"], ["Grid", "Everyone", "Grid"]]);
+sceneBtns("tutScenes", [["Tutorial · Screen + Cam", "Screen", "+ cam"], ["Tutorial · Side by Side", "Screen", "Side by side"], ["Tutorial · Full Screen", "Screen", "Full + PiP"]]);
+sceneBtns("panelScenes", [["Panel · Everyone", "Panel", "Everyone"], ["Chat / Q&A", "Q&A", "Chat wall"]]);
+sceneBtns("gnScenes", [["Game Night · Side by Side", "Game + Discord", "Side by side"], ["Game Night · Discord Full", "Discord", "Full screen"],
+                       ["Discord Call", "Discord", "Call + voice"], ["Gameplay · Full", "Game", "Full screen"]]);
+
+/* shared panel state, stored in OBS */
+const SHOW_KEYS = ["book405", "tut405", "topic405", "game405"];
+let book = {}, tut = { steps: [], current: 0, showSteps: true, presenter: "host1" }, topic = { text: "", show: false, list: [] }, game = { show: false };
+const saveT = {};
+const lastWrite = {};
+const save = (key, obj, now) => { lastWrite[key] = Date.now(); clearTimeout(saveT[key]); saveT[key] = setTimeout(() => { lastWrite[key] = Date.now(); ready && OBSState.write(request, key, obj); }, now ? 0 : 400); };
+const bindText = (id, obj, field, key, after) => { $(id).oninput = () => { obj()[field] = $(id).value; save(key, obj()); after && after(); }; };
+const lines = v => String(v || "").split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+function cardButtons(el, items, onShow) {
+  $(el).innerHTML = "";
+  items.forEach((it, i) => $(el).appendChild(msgBtn({ user: it.user, text: it.text }, () => onShow(it, i))));
+}
+
+// Book club
+function paintBook() {
+  [["bkTitle", "title"], ["bkAuthor", "author"], ["bkSession", "session"], ["bkProgress", "progress"], ["bkCover", "cover"], ["bkNote", "note"]]
+    .forEach(([id, f]) => { if (document.activeElement !== $(id)) $(id).value = book[f] == null ? "" : book[f]; });
+  if (document.activeElement !== $("bkQs")) $("bkQs").value = (book.questions || []).join("\n");
+  if (document.activeElement !== $("bkQuotes")) $("bkQuotes").value = (book.quotes || []).join("\n");
+  cardButtons("bkQList", (book.questions || []).map((q, i) => ({ user: "Q" + (i + 1), text: q })),
+    (it, i) => showCard({ label: "Discussion", user: "Question " + (i + 1), text: it.text, mark: "?" }));
+  cardButtons("bkQuoteList", (book.quotes || []).map(q => { const [t, c] = q.split("|").map(x => x.trim()); return { user: c || "Quote", text: t }; }),
+    it => showCard({ label: "From the book", user: it.user === "Quote" ? (book.title || "") : it.user, text: it.text, mark: "“", kind: "quote" }));
+}
+[["bkTitle", "title"], ["bkAuthor", "author"], ["bkSession", "session"], ["bkProgress", "progress"], ["bkCover", "cover"], ["bkNote", "note"]]
+  .forEach(([id, f]) => bindText(id, () => book, f, "book405"));
+$("bkQs").oninput = () => { book.questions = lines($("bkQs").value); save("book405", book); paintBook(); };
+$("bkQuotes").oninput = () => { book.quotes = lines($("bkQuotes").value); save("book405", book); paintBook(); };
+
+// Tutorial
+function paintTut() {
+  if (document.activeElement !== $("tuTitle")) $("tuTitle").value = tut.title || "";
+  if (document.activeElement !== $("tuSteps")) $("tuSteps").value = (tut.steps || []).join("\n");
+  const n = (tut.steps || []).length;
+  tut.current = Math.max(0, Math.min(n - 1, tut.current || 0));
+  $("tuNow").textContent = n ? `${tut.current + 1} / ${n} · ${tut.steps[tut.current]}` : "No steps yet";
+  $("tuShow").checked = tut.showSteps !== false;
+  $("tuPres").innerHTML = L.SEATS.filter(L.seatActive).map(s => `<option value="${s}">${Names.get(s) || L.seatName(s)}</option>`).join("");
+  $("tuPres").value = tut.presenter || "host1";
+}
+bindText("tuTitle", () => tut, "title", "tut405");
+$("tuSteps").oninput = () => { tut.steps = lines($("tuSteps").value); save("tut405", tut); paintTut(); };
+$("tuPrev").onclick = () => { tut.current = Math.max(0, (tut.current || 0) - 1); save("tut405", tut, true); paintTut(); };
+$("tuNext").onclick = () => { tut.current = Math.min((tut.steps || []).length - 1, (tut.current || 0) + 1); save("tut405", tut, true); paintTut(); };
+$("tuShow").onchange = () => { tut.showSteps = $("tuShow").checked; save("tut405", tut, true); };
+$("tuPres").onchange = () => setPresenter($("tuPres").value);
+function setPresenter(seat) {
+  tut.presenter = seat; L.setPresenter(seat); save("tut405", tut, true);
+  ["pvwFrame", "pgmFrame"].forEach(id => { try { $(id).contentWindow.postMessage({ type: "405th-presenter", seat }, "*"); } catch (e) {} });
+  if (!ready) return;
+  // every camera sits in the presenter spot of the tutorial scenes; switch on only the presenter
+  const scenes = L.SCENES.filter(d => d.view === "tut").map(d => d.scene);
+  batch(scenes.map(sc => ["GetSceneItemList", { sceneName: sc }]), res => {
+    const reqs = [];
+    res.forEach((r, i) => { if (!r.requestStatus.result) return;
+      for (const it of r.responseData.sceneItems) {
+        const m = /^(CAM|NAME) · (.+)$/.exec(it.sourceName); if (!m) continue;
+        const st = L.SEATS.find(x => L.seatName(x) === m[2]); if (!st) continue;
+        reqs.push(["SetSceneItemEnabled", { sceneName: scenes[i], sceneItemId: it.sceneItemId, sceneItemEnabled: st === seat }]);
+      } });
+    if (reqs.length) batch(reqs, () => resetShots());
+  });
+}
+
+// Open panel topic
+function paintTopic() {
+  if (document.activeElement !== $("tpText")) $("tpText").value = topic.text || "";
+  if (document.activeElement !== $("tpList")) $("tpList").value = (topic.list || []).join("\n");
+  $("tpShow").textContent = topic.show ? "Hide" : "Show"; $("tpShow").classList.toggle("on", !!topic.show);
+  cardButtons("tpBtns", (topic.list || []).map((t, i) => ({ user: "#" + (i + 1), text: t })), it => { topic.text = it.text; topic.show = true; saveTopic(true); });
+  [...$("tpBtns").children].forEach(b => b.classList.toggle("on", topic.show && b.querySelector("span").textContent === topic.text));
+}
+function saveTopic(now) {
+  save("topic405", topic, now); paintTopic();
+  ["pvwFrame", "pgmFrame"].forEach(id => { try { $(id).contentWindow.postMessage({ type: "405th-topic", topic }, "*"); } catch (e) {} });
+}
+$("tpText").oninput = () => { topic.text = $("tpText").value; saveTopic(); };
+$("tpShow").onclick = () => { topic.show = !topic.show; saveTopic(true); };
+$("tpList").oninput = () => { topic.list = lines($("tpList").value); saveTopic(); };
+
+// Game night
+function paintGame() {
+  [["gnTitle", "title"], ["gnMode", "mode"], ["gnNote", "note"]].forEach(([id, f]) => { if (document.activeElement !== $(id)) $(id).value = game[f] || ""; });
+  $("gnShow").textContent = game.show ? "Hide" : "Show"; $("gnShow").classList.toggle("on", !!game.show);
+}
+[["gnTitle", "title"], ["gnMode", "mode"], ["gnNote", "note"]].forEach(([id, f]) => bindText(id, () => game, f, "game405"));
+$("gnShow").onclick = () => { game.show = !game.show; save("game405", game, true); paintGame(); };
+
+function loadPanels() {
+  OBSState.read(request, "book405", st => { book = st || {}; paintBook(); });
+  OBSState.read(request, "tut405", st => { tut = Object.assign({ steps: [], current: 0, showSteps: true, presenter: "host1" }, st || {}); L.setPresenter(tut.presenter); paintTut(); });
+  OBSState.read(request, "topic405", st => { topic = Object.assign({ text: "", show: false, list: [] }, st || {}); paintTopic();
+    ["pvwFrame", "pgmFrame"].forEach(id => { try { $(id).contentWindow.postMessage({ type: "405th-topic", topic }, "*"); } catch (e) {} }); });
+  OBSState.read(request, "game405", st => { game = Object.assign({ show: false }, st || {}); paintGame(); });
+}
+paintBook(); paintTut(); paintTopic(); paintGame();
+Names.onChange(() => paintTut());
 
 /* ---------- bracket editor ---------- */
 let bracket = { title: "", subtitle: "", size: 8, teams: Array(8).fill(""), win: {} };
@@ -784,9 +1062,11 @@ renderBracket();
 
 /* load the stored scoreboard / Q&A / bracket when connected */
 function loadShowState() {
+  OBSState.read(request, "show405", st => applyShow(st && SHOWS.TYPES[st.type] ? st.type : (window.PACK_CONFIG.show || "tournament"), true));
+  loadPanels();
   OBSState.read(request, "hosts405", st => setHostCount(st && st.n ? st.n : (window.PACK_CONFIG.hosts || 2), true));
   OBSState.read(request, "score405", st => { if (st) score = Object.assign(score, st); paintScore(); });
-  OBSState.read(request, "qa405", st => { qaShown = st; paintQa(); });
+  OBSState.read(request, "qa405", st => { qaShown = st; qaQueue = (st && st.queue) || []; paintQa(); });
   OBSState.read(request, "bracket405", st => { if (st) { bracket = Object.assign(bracket, st); bracket.teams = (bracket.teams || []).concat(Array(8).fill("")).slice(0, bracket.size); bracket.win = bracket.win || {}; } renderBracket(); });
 }
 Names.onChange(() => paintScore());

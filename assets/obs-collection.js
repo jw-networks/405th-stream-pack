@@ -94,9 +94,12 @@
   /* opts: { root, transition, audioMode: "follow" | "all", hostsAlways: true, hosts: 1 | 2, versusOverride, cameraUrl: seat => link or "" } */
   function build(opts) {
     const hosts = opts.hosts == null ? L.hostCount() : Number(opts.hosts) === 1 ? 1 : 2;
+    const SH = (typeof SHOWS !== "undefined") ? SHOWS : null;
+    if (SH && opts.show && SH.TYPES[opts.show]) SH.set(opts.show);
     return L.withHosts(hosts, () => buildFor(opts, hosts));
   }
   function buildFor(opts, hosts) {
+    const SH = (typeof SHOWS !== "undefined") ? SHOWS : null;
     const rootDir = String(opts.root || "").replace(/\\/g, "/").replace(/\/+$/, "");
     const file = rel => rootDir + "/" + rel;
     const browser = (name, rel, extra = {}) => source("browser_source", name, Object.assign({
@@ -121,7 +124,8 @@
       sources.push(CAM[s], NAME[s]);
     }
     for (const id of Object.keys(L.FRAMES)) { FR[id] = browser("FRAMES · " + id, "presets/frames-" + id + ".html"); sources.push(FR[id]); }
-    const link = browser("405th LINK", "link.html", { width: 16, height: 16, hosts405: JSON.stringify({ n: hosts }) });
+    const link = browser("405th LINK", "link.html", { width: 16, height: 16, hosts405: JSON.stringify({ n: hosts }),
+      show405: JSON.stringify({ type: (SH && SH.get()) || "tournament" }) });
     sources.push(link);
 
     /* ---- extra scenes' sources ---- */
@@ -139,6 +143,15 @@
     const qaCard = browser("Q&A CARD", "qa.html");
     const upNext = browser("UP NEXT", "upnext.html");
     sources.push(discordWin, discordAudio, discordVoice, chatPanel, scoreboard, qaCard, upNext);   // GAME FEED is added with the scenes
+    // show-type sources
+    const screenPh = source("image_source", "Screen placeholder", { file: file("assets/placeholders/screen.png") });
+    sources.push(screenPh);
+    const screenFeed = scene("SCREEN SHARE", [[screenPh, null]]);    // put your display / window capture in here
+    const bookInfo = browser("BOOK", "book.html");
+    const steps = { split: browser("STEPS · split", "presets/steps-split.html"), side: browser("STEPS · side", "presets/steps-side.html"),
+                    full: browser("STEPS · full", "presets/steps-full.html") };
+    const nowPlaying = browser("NOW PLAYING", "nowplaying.html");
+    sources.push(bookInfo, steps.split, steps.side, steps.full, nowPlaying);
 
     /* every camera always "on" so everyone stays audible, whatever is on screen */
     // dock tiles (never on air)
@@ -163,6 +176,17 @@
         e.push([qaCard, null]);
         return scene(def.scene, e.concat(tail()));
       }
+      if (def.view === "tut") {
+        // tutorial: every camera sits in the presenter spot, only the presenter (Host 1 to start) is switched on.
+        // The Director's Tutorial panel picks who presents.
+        const v = L.view("tut", def.arg), r = Object.values(v.rects)[0], pres = L.presenter();
+        const e = base();
+        for (const s of L.SEATS) e.push([CAM[s], { rect: r }, s !== pres]);
+        e.push([screenFeed, { rect: v.extra[0] }], [FR[L.framesFor(def)], null], [steps[def.arg], null]);
+        for (const s of L.SEATS) e.push([NAME[s], L.plateXform(r, false), s !== pres]);
+        e.push([qaCard, null]);
+        return scene(def.scene, e.concat(tail()));
+      }
       const v = L.view(def.view, def.arg);
       // the 2-host version of this layout: host cameras not used right now are still added (hidden),
       // so the Director's 1 / 2 hosts switch can bring them back
@@ -175,12 +199,16 @@
       // under the frames (seen through the holes): the game feed / the Discord window (+ its audio)
       if (def.view === "gameplay") e.push([gameFeed, { rect: ex[0] }]);
       if (def.view === "discord") e.push([discordWin, { rect: ex[0] }], [discordAudio, null]);
+      if (def.view === "gn" && def.arg === "side") e.push([gameFeed, { rect: ex[0] }], [discordWin, { rect: ex[1] }], [discordAudio, null]);
+      if (def.view === "gn" && def.arg === "discord") e.push([discordWin, { rect: ex[0] }], [discordAudio, null]);
       e.push([FR[L.framesFor(def)], null]);
+      if (def.view === "book") e.push([bookInfo, null]);
       // on top of the frames: Discord voice strip / chat panel
       if (def.view === "discord") e.push([discordVoice, { x: ex[1].x, y: ex[1].y, scale: 1 }]);
       if (def.view === "chatwall") e.push([chatPanel, { x: ex[0].x, y: ex[0].y, scale: 1 }]);
       for (const s of seats) e.push([NAME[s], L.plateXform(at(s), !!v.full), !v.rects[s]]);
-      if (["gameplay", "versus", "duel"].includes(def.view)) e.push([scoreboard, null]);
+      if (["gameplay", "versus", "duel"].includes(def.view) || (def.view === "gn" && def.arg === "side")) e.push([scoreboard, null]);
+      if (["gameplay", "discord", "gn"].includes(def.view)) e.push([nowPlaying, null]);
       e.push([qaCard, null]);
       return scene(def.scene, e.concat(tail()));
     });
@@ -220,9 +248,10 @@
       ...pick(["Roster", "Starting Soon", "Be Right Back", "Ending"]),
       ...pick(nm(d => d.view === "gameplay" || d.view === "discord" || d.view === "chatwall")),
       ...pick(["Schedule", "Sponsors", "Join the 405th", "Extra Life", "Bracket", "Technical Difficulties"]),
+      ...pick(nm(d => ["panel", "book", "tut", "gn"].includes(d.view))),
       ...pick(nm(d => d.view === "interview")),
     ];
-    const allScenes = [...order, ...[...layoutScenes, ...extraScenes].filter(x => !order.includes(x)), gameFeed, audio, allSeats];
+    const allScenes = [...order, ...[...layoutScenes, ...extraScenes].filter(x => !order.includes(x)), gameFeed, screenFeed, audio, allSeats];
     sources.push(...allScenes);
 
     /* transitions: Move (plugin) slides the shared cameras between layouts; Fade / Cut are built in;

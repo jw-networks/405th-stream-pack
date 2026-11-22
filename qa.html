@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<!-- Q&A CARD: the featured chat question, picked in the Director. Transparent 1920 x 1080, shows bottom-center.
+<!-- Q&A CARD: the featured chat question (or Book Club discussion question / quote), picked in the Director.
+     Transparent 1920 x 1080, shows bottom-center. Optional fields: label ("Question from"), mark ("?"), kind ("quote"), more (queue count).
      Test:  qa.html?state={"shown":true,"user":"SpartanFan","text":"What armor are you building next?","color":"#ff7f50"} -->
 <html>
 <head>
@@ -16,13 +17,16 @@
   .tab b { font-size: 26px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
   .body { display: flex; border-top: 4px solid var(--cyan); background: rgba(18,18,18,.96); }
   .body .mark { flex: 0 0 110px; display: grid; place-items: center; border-right: 3px solid var(--cyan); font-size: 92px; font-weight: 800; color: var(--cyan); }
+  .more { position: absolute; right: 0; top: 8px; font-size: 22px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--cyan); }
+  .qa.quote .txt { font-style: italic; }
   .body .txt { padding: 22px 30px; font-size: 44px; font-weight: 700; line-height: 1.15; font-stretch: 85%; font-variation-settings: "wdth" 85; }
 </style>
 </head>
 <body>
 <div class="qa" id="qa">
-  <div class="tab"><span class="label">Question from</span><span class="kink"></span><b id="u"></b></div>
-  <div class="body"><div class="mark">?</div><div class="txt" id="t"></div></div>
+  <div class="tab"><span class="label" id="lb">Question from</span><span class="kink"></span><b id="u"></b></div>
+  <div class="body"><div class="mark" id="mk">?</div><div class="txt" id="t"></div></div>
+  <div class="more" id="more"></div>
 </div>
 <script src="config.js"></script>
 <script src="config.local.js" onerror="void 0"></script>
@@ -35,6 +39,10 @@ OBSState.watch("qa405", s => {
   if (!s || !s.shown) { qa.classList.remove("on"); return; }
   const swap = qa.classList.contains("on");
   const show = () => {
+    document.getElementById("lb").textContent = s.label || "Question from";
+    document.getElementById("mk").textContent = s.mark || "?";
+    document.getElementById("more").textContent = s.more ? "+" + s.more + " more in the queue" : "";
+    qa.classList.toggle("quote", s.kind === "quote");
     document.getElementById("u").textContent = s.user || "";
     document.getElementById("u").style.color = s.color || "#fff";
     const t = document.getElementById("t"); t.textContent = s.text || "";

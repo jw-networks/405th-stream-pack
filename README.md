@@ -23,6 +23,7 @@ Overlays, camera layouts, hotkeys and a director panel for a 2-host / 8-player s
 ├── schedule.js      ← the show rundown (Schedule scene + Up next card)
 ├── schedule.html, upnext.html, sponsors.html, join.html, tech.html, extralife.html, bracket.html
 ├── scoreboard.html, qa.html, chat.html   ← overlays driven by the Director / Twitch
+├── book.html, tut.html, nowplaying.html ← Book Club / Tutorial / Game Night overlays
 ├── scene.html       ← Starting Soon / Be Right Back / Ending screens
 ├── nameplate.html   ← one seat's nameplate, for use anywhere
 ├── stingers/        ← 405th stinger transitions (transparent WebM) + tools/stinger.html (their renderer)
@@ -208,6 +209,27 @@ All of these come with the scene collection. Most need a one-time setting, liste
 - **Bracket:** title, 4 or 8 teams, then click each match's winner; winners move on automatically.
 - The scoreboard, Q&A card and bracket are saved inside OBS (in the 405th LINK source), so they survive refreshes and restarts,
   and every Director sees the same thing.
+
+### Show types (one Director, five dashboards)
+Pick the show in the **Show** menu at the top of the Director: **Tournament, Book Club, Game Night, Tutorial Q&A, Open Panel**.
+That show's controls move to the top and everything else goes under **More controls** at the bottom. Nothing is removed.
+On screen, the choice also changes:
+- **Seat labels and generic names:** Player (Tournament), Reader (Book Club), Squad (Game Night), Guest (Tutorial), Panelist (Open Panel).
+- **Colours:** team colours are Tournament-only; the other shows use 405th teal everywhere.
+- **Crew title:** "Tonight's fireteam" / "Tonight's book club" / "Tonight's guests" / "Tonight's panel" on the Grid bar and the Roster.
+
+The choice is saved in OBS, so every dock and overlay follows it. Pick the starting show in `setup.html` (or `show:` in `config.local.js`).
+
+| Show | Its panel in the Director | Its scenes |
+|---|---|---|
+| **Book Club** | Book title, author, session, progress %, cover image, note. Discussion questions and quotes (one per line): click one to put it on screen as a card | **Book Club · Spotlight**: book cover + info, hosts on the right |
+| **Tutorial Q&A** | Title, steps (one per line) with Prev / Next, show/hide steps, **Presenter** (any seat). The Q&A panel gets a **question queue**: click **+** on a chat message, then **Next in queue** | **Tutorial · Screen + Cam**, **Side by Side**, **Full Screen** (picture-in-picture). Put your display / window capture inside the **SCREEN SHARE** scene once |
+| **Open Panel** | Topic (Show / Hide) and a list of tonight's topics: click one to make it the topic. The topic replaces the label in the bottom bar | **Panel · Everyone**: all seats the same size |
+| **Game Night** | "Now playing" card: game, mode / map, note, Show / Hide | **Game Night · Side by Side** (game + Discord window), **Game Night · Discord Full**. Uses the same GAME FEED and Discord window as the other scenes |
+| **Tournament** | Teams, duels, scoreboard, bracket up front | as before |
+
+The book info, tutorial steps, topic and "Now playing" card are saved in OBS like the scoreboard. A cover image can be a web link
+or a file in the pack folder (e.g. `assets/books/reach.jpg`); without one, a cover is drawn from the title.
 
 ### Stinger transitions
 Three branded stingers live in `stingers/` (transparent 1080p60 WebM):

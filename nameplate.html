@@ -17,6 +17,9 @@
 <body>
 <script src="config.js"></script>
 <script src="config.local.js" onerror="void 0"></script>
+<script src="assets/sha256.js"></script>
+<script src="assets/obsstate.js"></script>
+<script src="assets/shows.js"></script>
 <script src="assets/names.js"></script>
 <script src="assets/plate.js"></script>
 <script>
@@ -30,6 +33,7 @@
   if (p.get("width")) plate.style.setProperty("--w", p.get("width") + "em");
   document.body.appendChild(plate);
   Names.start();
+  SHOWS.follow({ ws: !!(Names.config.obs && Names.config.obs.address) });   // seat label follows the show type
 </script>
 </body>
 </html>

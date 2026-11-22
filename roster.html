@@ -51,19 +51,20 @@
 
 <script src="config.js"></script>
 <script src="config.local.js" onerror="void 0"></script>
+<script src="assets/shows.js"></script>
 <script src="assets/names.js"></script>
 <script src="assets/sha256.js"></script>
 <script src="assets/obsstate.js"></script>
 <script>
   const P = new URLSearchParams(location.search);
   const C = Names.config;
-  if (P.get("title")) document.getElementById("title").textContent = P.get("title");
+
   document.getElementById("sub").textContent = P.get("sub") || C.eventTitle || "";
   document.getElementById("url").textContent = C.website || "";
 
   const grid = document.getElementById("grid");
   const cards = {};
-  const short = s => s.startsWith("host") ? "Host" : "P" + s.slice(1);
+  const short = s => s.startsWith("host") ? "Host" : (SHOWS.teams() ? "P" : SHOWS.role()[0]) + s.slice(1);
   function card(seat) {
     const el = document.createElement("div");
     el.className = "card hexpanel" + (seat.startsWith("host") ? " host " + seat : "");
@@ -73,16 +74,24 @@
   }
   card("host1"); card("host2");
   const T = (window.PACK_CONFIG.teams) || { a: { name: "Team A", color: "#5ccbe9" }, b: { name: "Team B", color: "#ff6a4d" } };
-  document.documentElement.style.setProperty("--ta", T.a.color);
-  document.documentElement.style.setProperty("--tb", T.b.color);
-  const heads = ["a", "b"].map(t => { const d = document.createElement("div"); d.className = "divider"; d.style.setProperty("--tc", T[t].color);
+  const heads = ["a", "b"].map(t => { const d = document.createElement("div"); d.className = "divider";
     d.innerHTML = '<span class="label"></span>'; grid.appendChild(d); return [t, d]; });
+  // show type: Tournament keeps team names + colours; other shows use one colour and the role ("Readers", "Panelists" …)
+  function paintShow() {
+    const teams = SHOWS.teams(), teal = "#5ccbe9";
+    document.documentElement.style.setProperty("--ta", teams ? T.a.color : teal);
+    document.documentElement.style.setProperty("--tb", teams ? T.b.color : teal);
+    heads.forEach(([t, d]) => d.style.setProperty("--tc", teams ? T[t].color : teal));
+    document.getElementById("title").textContent = P.get("title") || SHOWS.crew();
+    Object.entries(cards).forEach(([seat, el]) => el.querySelector(".tag").textContent = short(seat));
+  }
   // two columns: P1-P4 left, P5-P8 right
   [1,5,2,6,3,7,4,8].forEach(n => { card("p" + n); cards["p" + n].classList.add(n <= 4 ? "ta" : "tb"); });
 
   let first = true;
   Names.onChange(() => {
-    heads.forEach(([t, d]) => d.querySelector("span").textContent = Names.get("team" + t) || T[t].name);
+    paintShow();
+    heads.forEach(([t, d]) => d.querySelector("span").textContent = SHOWS.teams() ? (Names.get("team" + t) || T[t].name) : SHOWS.role() + "s");
     Object.entries(cards).forEach(([seat, el], i) => {
       const name = Names.get(seat);
       const nm = el.querySelector(".nm");
@@ -96,6 +105,7 @@
     first = false;
   });
   Names.start();
+  SHOWS.follow({ ws: !!(C.obs && C.obs.address) });
 
   // 1 or 2 hosts: switched in the Director, stored in OBS
   const solo = n => document.body.classList.toggle("solo", Number(n) === 1);

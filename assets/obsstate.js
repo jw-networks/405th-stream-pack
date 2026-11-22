@@ -10,7 +10,9 @@
   function parse(v) { try { return typeof v === "string" ? JSON.parse(v) : v || null; } catch (e) { return null; } }
 
   /* overlay side: own small connection, poll + events */
-  function watch(key, onState) {
+  /* watch(key, cb, { poll: ms })  — also refreshes instantly when a dock writes (it broadcasts "405th-statechange") */
+  function watch(key, onState, opts) {
+    const every = (opts && opts.poll) || 1000;
     const o = C.obs || {};
     let ws, alt = false, up = false, rid = 0, last = "__none__";
     const cbs = {};
@@ -29,17 +31,19 @@
       ws.onmessage = ev => {
         const m = JSON.parse(ev.data);
         if (m.op === 0) {
-          const d = { rpcVersion: 1, eventSubscriptions: 8 };   // Inputs (InputSettingsChanged on newer OBS)
+          const d = { rpcVersion: 1, eventSubscriptions: 1 | 8 };   // General (dock broadcasts) + Inputs (InputSettingsChanged on newer OBS)
           if (m.d.authentication) d.authentication = sha256b64(sha256b64((o.password || "") + m.d.authentication.salt) + m.d.authentication.challenge);
           ws.send(JSON.stringify({ op: 1, d }));
         } else if (m.op === 2) { up = true; pull(); }
         else if (m.op === 7 && cbs[m.d.requestId]) { const cb = cbs[m.d.requestId]; delete cbs[m.d.requestId]; cb(m.d); }
         else if (m.op === 5 && m.d.eventType === "InputSettingsChanged" && m.d.eventData && m.d.eventData.inputName === HOLDER) pull();
+        else if (m.op === 5 && m.d.eventType === "CustomEvent" && m.d.eventData && m.d.eventData.type === "405th-statechange"
+                 && (!m.d.eventData.key || m.d.eventData.key === key)) pull();
       };
       ws.onclose = () => { up = false; setTimeout(open, 4000); };
     };
     open();
-    setInterval(pull, 1000);          // older OBS versions don't send InputSettingsChanged
+    setInterval(pull, every);         // backup: older OBS versions don't send InputSettingsChanged
     // test / preview without OBS:  ?state={"a":1,...}
     const q = new URLSearchParams(location.search).get("state");
     if (q) onState(parse(q));
@@ -47,7 +51,10 @@
 
   /* Director side: write with the Director's request(type, data, cb) */
   function write(request, key, state, cb) {
-    request("SetInputSettings", { inputName: HOLDER, inputSettings: { [key]: JSON.stringify(state) }, overlay: true }, cb);
+    request("SetInputSettings", { inputName: HOLDER, inputSettings: { [key]: JSON.stringify(state) }, overlay: true }, r => {
+      request("BroadcastCustomEvent", { eventData: { type: "405th-statechange", key } });   // overlays + other docks refresh now
+      if (cb) cb(r);
+    });
   }
   function read(request, key, cb) {
     request("GetInputSettings", { inputName: HOLDER }, r => cb(r.requestStatus.result ? parse((r.responseData.inputSettings || {})[key]) : null));

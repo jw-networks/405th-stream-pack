@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<!-- TUTORIAL · title + step tracker. Transparent 1920 x 1080, on top of FRAMES · tut-*.
+     ?mode=split  (Tutorial · Screen + Cam: steps panel under the presenter cam, right column)
+     ?mode=side   (Tutorial · Side by Side: steps under the presenter cam)
+     ?mode=full   (Tutorial · Full Screen: a small "Step 3 / 7" pill, top-left)
+     Filled in from the Director → Tutorial panel (stored in OBS as "tut405").
+     Test:  tut.html?mode=split&state={"title":"Building a Spartan helmet","steps":["Print","Sand","Prime","Paint"],"current":1,"showSteps":true} -->
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  body { width: 1920px; height: 1080px; position: relative; }
+  .fade { opacity: 0; transition: opacity .5s; } .fade.on { opacity: 1; }
+  /* title strip (split + side) */
+  #head { position: absolute; left: 32px; display: flex; align-items: center; gap: 18px; max-width: 1500px; }
+  #head .label { font-size: 26px; }
+  #head b { font-size: 50px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variation-settings: "wdth" 75; }
+  body.split #head { top: 26px; } body.side #head { top: 70px; }
+  /* steps panel */
+  #steps { position: absolute; background: rgba(18,18,18,.94); border-top: 4px solid var(--cyan); padding: 14px 18px; overflow: hidden; }
+  body.split #steps { left: 1568px; top: 306px; width: 320px; height: 659px; }
+  body.side #steps { left: 1264px; top: 537px; width: 624px; height: 317px; }
+  body.full #steps { display: none; }
+  #steps h3 { margin: 0 0 10px; display: flex; justify-content: space-between; font-size: 22px; font-weight: 800; letter-spacing: .16em; color: var(--cyan); text-transform: uppercase; }
+  #steps h3 span { color: var(--muted); }
+  #clip { position: absolute; left: 18px; right: 18px; top: 52px; bottom: 10px; overflow: hidden; }
+  body.full #head { display: none; }
+  ol { list-style: none; margin: 0; padding: 0; transition: transform .6s var(--ease); }
+  li { display: flex; gap: 12px; align-items: baseline; padding: 9px 0; border-bottom: 1px solid #2a2a2a; font-size: 26px; font-weight: 700; color: #8d969a; line-height: 1.15; }
+  li i { flex: 0 0 34px; height: 34px; display: grid; place-items: center; font-style: normal; font-weight: 800; font-size: 20px; background: #262626; color: #aaa; align-self: center; }
+  li.done { color: #5f686c; } li.done i { background: #0e4846; color: var(--cyan); }
+  li.now { color: #fff; font-size: 30px; } li.now i { background: var(--cyan); color: #0b2630; }
+  body.side li { font-size: 24px; padding: 7px 0; } body.side li.now { font-size: 28px; }
+  /* full-screen pill */
+  #pill { position: absolute; left: 32px; top: 32px; display: none; align-items: stretch; max-width: 1400px; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+  body.full #pill { display: flex; }
+  #pill .n { background: var(--cyan); color: #0b2630; padding: 10px 18px; font-size: 30px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+  #pill .t { background: rgba(18,18,18,.94); padding: 10px 22px; font-size: 32px; font-weight: 800; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+</style>
+</head>
+<body>
+<div id="head" class="fade"><span class="label">Tutorial</span><span class="kink"></span><b id="title"></b></div>
+<div id="steps" class="fade"><h3>Steps <span id="count"></span></h3><div id="clip"><ol id="list"></ol></div></div>
+<div id="pill" class="fade"><div class="n" id="pn"></div><div class="t" id="pt"></div></div>
+<script src="config.js"></script>
+<script src="config.local.js" onerror="void 0"></script>
+<script src="assets/sha256.js"></script>
+<script src="assets/obsstate.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const mode = new URLSearchParams(location.search).get("mode") || "split";
+document.body.classList.add(mode);
+function render(t) {
+  t = t || {};
+  const steps = (t.steps || []).filter(Boolean), cur = Math.max(0, Math.min(steps.length - 1, Number(t.current) || 0));
+  $("title").textContent = t.title || "";
+  $("head").classList.toggle("on", !!t.title);
+  const show = t.showSteps !== false && steps.length > 0;
+  $("count").textContent = steps.length ? (cur + 1) + " / " + steps.length : "";
+  $("list").innerHTML = steps.map((s, i) => `<li class="${i < cur ? "done" : i === cur ? "now" : ""}"><i>${i < cur ? "✓" : i + 1}</i><span></span></li>`).join("");
+  [...$("list").children].forEach((li, i) => li.querySelector("span").textContent = steps[i]);
+  $("steps").classList.toggle("on", show);
+  // keep the current step in view
+  requestAnimationFrame(() => {
+    const li = $("list").children[cur], box = $("clip");
+    if (!li) return;
+    const room = box.clientHeight, y = li.offsetTop;
+    $("list").style.transform = y > room * 0.45 ? `translateY(${-Math.min(y - room * 0.45, $("list").scrollHeight - room)}px)` : "";
+  });
+  $("pn").textContent = steps.length ? "Step " + (cur + 1) + " / " + steps.length : "Tutorial";
+  $("pt").textContent = steps.length ? steps[cur] : (t.title || "");
+  $("pill").classList.toggle("on", show || (!steps.length && !!t.title));
+}
+OBSState.watch("tut405", render, { poll: 2000 });
+</script>
+</body>
+</html>

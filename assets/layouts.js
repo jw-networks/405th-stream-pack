@@ -58,6 +58,25 @@
         { x: 1032, y: 552, w: 420, h: 236 }, { x: 1468, y: 552, w: 420, h: 236 }],
   };
 
+  const crew = () => (typeof SHOWS !== "undefined" && SHOWS.crew) ? SHOWS.crew() : "Tonight's fireteam";
+  /* Panel · Everyone: every active seat the same size, rows of 4, last row centred */
+  function panelRects() {
+    const seats = SEATS.filter(seatActive), w = 440, h = 248, gap = 16, out = {};
+    for (let i = 0; i < seats.length; i += 4) {
+      const row = seats.slice(i, i + 4), y = 124 + (i / 4) * (h + gap);
+      const x0 = Math.round((W - (row.length * w + (row.length - 1) * gap)) / 2);
+      row.forEach((s, j) => out[s] = { x: x0 + j * (w + gap), y, w, h });
+    }
+    return out;
+  }
+  /* tutorial: where the presenter's camera + the screen share go */
+  const TUT = {
+    split: { screen: { x: 32, y: 110, w: 1520, h: 855 }, cam: { x: 1568, y: 110, w: 320, h: 180 } },
+    side:  { screen: { x: 32, y: 170, w: 1216, h: 684 }, cam: { x: 1264, y: 170, w: 624, h: 351 } },
+    full:  { screen: { x: 0, y: 0, w: W, h: H },          cam: { x: 1552, y: 812, w: 336, h: 189 } },
+  };
+  let PRESENTER = "host1";                 // tutorial presenter seat (Director → Tutorial panel)
+  const setPresenter = s => { if (SEATS.includes(s)) PRESENTER = s; return PRESENTER; };
   const place = (seats, slots) => Object.fromEntries(seats.map((s, i) => [s, slots[i]]).filter(([, r]) => r));
 
   /* view(name, arg) -> { rects, bar, side, title, full, team, headers[], vs, tint } */
@@ -103,6 +122,21 @@
         return { rects: {}, bar: true, label: (CFG.discord && CFG.discord.subtitle) || "Community call",
                  title: (CFG.discord && CFG.discord.title) || "Discord", titleY: 36,
                  extra: [{ x: 32, y: 110, w: 1440, h: 810, label: "Discord window" }, { x: 1496, y: 110, w: 392, h: 810, label: "Voice", panel: true }] };
+      case "panel":                        // Open Panel: everyone equal
+        return { rects: panelRects(), bar: true, label: "Open panel", title: crew(), titleY: 36 };
+      case "book":                         // Book Club spotlight: book info on the left (BOOK source), hosts on the right
+        return { rects: HOSTS === 1 ? { host1: { x: 1328, y: 351, w: 560, h: 315 } }
+                                    : { host1: { x: 1328, y: 136, w: 560, h: 315 }, host2: { x: 1328, y: 567, w: 560, h: 315 } },
+                 bar: true, label: "Book club" };
+      case "tut": {                        // arg = "split" | "side" | "full"; the presenter seat is picked in the Director
+        const t = TUT[arg] || TUT.split, who = PRESENTER;
+        return { rects: { [who]: t.cam }, bar: arg !== "full", label: "Tutorial", presenter: true,
+                 extra: [{ x: t.screen.x, y: t.screen.y, w: t.screen.w, h: t.screen.h, label: "Screen share" }] };
+      }
+      case "gn":                           // Game Night: arg "side" (game + Discord side by side) | "discord" (Discord full)
+        if (arg === "discord") return { rects: {}, bar: false, extra: [{ x: 0, y: 0, w: W, h: H, label: "Discord window" }] };
+        return { rects: {}, bar: true, label: "Game night", title: "Game night", titleY: 120,
+                 extra: [{ x: 32, y: 232, w: 916, h: 515, label: "Game" }, { x: 972, y: 232, w: 916, h: 515, label: "Discord window" }] };
       case "chatwall":
         return { rects: HOSTS === 1 ? { host1: SOLO.chatwall } : { host1: { x: 32, y: 110, w: 720, h: 405 }, host2: { x: 32, y: 531, w: 720, h: 405 } },
                  bar: true, label: "Live chat", title: "Live chat · Q&A", titleY: 36,
@@ -110,12 +144,12 @@
       default: {
         const rects = { ...GRID };
         if (HOSTS === 1) { delete rects.host2; rects.host1 = SOLO.grid; }
-        return { rects, bar: true, side: true, label: "Tonight's fireteam" };
+        return { rects, bar: true, side: true, label: crew() };
       }
     }
   }
   /* scenes whose layout changes with the host count (the Director re-places host cameras in these) */
-  const hostScenes = () => SCENES.filter(d => ["grid", "hosts", "interview", "chatwall"].includes(d.view));
+  const hostScenes = () => SCENES.filter(d => ["grid", "hosts", "interview", "chatwall", "panel", "book"].includes(d.view));
 
   /* ---- OBS scene names. The overlay reads the live scene name to pick its view.
           Rename here if you like, BEFORE generating the scene collection. ---- */
@@ -134,6 +168,14 @@
     { scene: "Gameplay · Full", view: "gameplay", arg: "full" },
     { scene: "Discord Call", view: "discord" },
     { scene: "Chat / Q&A", view: "chatwall" },
+    /* show-type scenes */
+    { scene: "Panel · Everyone", view: "panel" },
+    { scene: "Book Club · Spotlight", view: "book" },
+    { scene: "Tutorial · Screen + Cam", view: "tut", arg: "split" },
+    { scene: "Tutorial · Side by Side", view: "tut", arg: "side" },
+    { scene: "Tutorial · Full Screen", view: "tut", arg: "full" },
+    { scene: "Game Night · Side by Side", view: "gn", arg: "side" },
+    { scene: "Game Night · Discord Full", view: "gn", arg: "discord" },
     { scene: "Multi-View A", view: "multi", arg: null, multi: true },
     { scene: "Multi-View B", view: "multi", arg: null, multi: true },
   ];
@@ -165,6 +207,8 @@
   function framesFor(def) {
     if (def.view === "team") return "team-" + def.arg;
     if (def.view === "gameplay") return "gameplay-" + def.arg;
+    if (def.view === "tut") return "tut-" + def.arg;
+    if (def.view === "gn") return "gn-" + def.arg;
     if (def.view === "multi") return null;              // multi scenes switch between multi2/3/4
     return def.view;                                    // grid, hosts, versus, duel, spotlight, interview
   }
@@ -172,6 +216,8 @@
     grid: "view=grid", hosts: "view=hosts", "team-a": "view=team&team=a", "team-b": "view=team&team=b",
     versus: "view=versus", duel: "view=duel&n=1", spotlight: "view=spotlight&seat=p1", interview: "view=interview&seat=p1",
     "gameplay-teams": "view=gameplay&arg=teams", "gameplay-full": "view=gameplay&arg=full", discord: "view=discord", chatwall: "view=chatwall",
+    panel: "view=panel", book: "view=book", "tut-split": "view=tut&arg=split", "tut-side": "view=tut&arg=side", "tut-full": "view=tut&arg=full",
+    "gn-side": "view=gn&arg=side", "gn-discord": "view=gn&arg=discord",
     multi2: "view=multi&seats=p1,p2&notint", multi3: "view=multi&seats=p1,p2,p3&notint", multi4: "view=multi&seats=p1,p2,p3,p4&notint"
   };
 
@@ -188,7 +234,7 @@
     return { x: c * SEATS_GRID.cellW, y: r * SEATS_GRID.cellH, w: SEATS_GRID.cellW, h: SEATS_GRID.cellH, col: c, row: r };
   };
 
-  const api = { setHosts, hostCount, withHosts, seatActive, hostScenes, SEATS_GRID, AUDIO_SCENE, seatCell, PLATE, plateXform, framesFor, FRAMES, W, H, SEATS, GRID, UP, SIDE, TEAMS, teamOf, view, SCENES, sceneToView, seatName, multiName, multiBase };
+  const api = { setPresenter, presenter: () => PRESENTER, TUT, panelRects, setHosts, hostCount, withHosts, seatActive, hostScenes, SEATS_GRID, AUDIO_SCENE, seatCell, PLATE, plateXform, framesFor, FRAMES, W, H, SEATS, GRID, UP, SIDE, TEAMS, teamOf, view, SCENES, sceneToView, seatName, multiName, multiBase };
   if (typeof window !== "undefined") window.LAYOUTS = api;
   else globalThis.LAYOUTS = api;
 })();

@@ -24,7 +24,7 @@
   function genericName(seat) {
     let m;
     if ((m = /^host(\d)$/.exec(seat))) return "Host " + m[1];
-    if ((m = /^p(\d)$/.exec(seat))) return "Player " + m[1];
+    if ((m = /^p(\d)$/.exec(seat))) return (window.SHOWS ? SHOWS.role() : "Player") + " " + m[1];
     // team names fall back to config.js → teams (default "Team A" / "Team B")
     return "";
   }
@@ -100,7 +100,9 @@
     parse,
     seatKey,
     label(seat) {
-      return params.get("label") || (CFG.labels && CFG.labels[seat]) || seat.toUpperCase();
+      if (params.get("label")) return params.get("label");
+      if (window.SHOWS) return SHOWS.seatLabel(seat);      // per show type: Player / Reader / Squad / Guest / Panelist
+      return (CFG.labels && CFG.labels[seat]) || seat.toUpperCase();
     },
     /* Name for a seat. If the names file doesn't mention the seat (or there is no file yet),
        a generic name is used: "Host 1", "Player 3"... An explicitly blank name ("P3:") stays blank. */
@@ -119,7 +121,8 @@
     /* every seat + team name as currently resolved (for relaying) */
     snapshot() {
       const out = {};
-      for (const k of [...ORDER, "teama", "teamb"]) out[k] = this.get(k);
+      // only names actually set: seats left generic stay generic on the other side ("Reader 3" follows the show type there too)
+      for (const k of [...ORDER, "teama", "teamb"]) if (Object.prototype.hasOwnProperty.call(current, k)) out[k] = this.get(k);
       return out;
     },
     onChange(fn) {
@@ -132,6 +135,9 @@
       setInterval(poll, Number(params.get("poll")) || CFG.pollMs || 500);
     }
   };
+
+  // show type changed (Tournament → Book Club …): generic names + seat labels change, so tell everyone
+  if (window.SHOWS) SHOWS.onChange(() => { if (lastRaw !== null) listeners.forEach(fn => fn(current, current)); });
 
   /* Shrink text until it fits its box (long gamertags). */
   window.fitText = function (el, maxPx, minPx) {
